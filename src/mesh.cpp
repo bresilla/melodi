@@ -3,7 +3,7 @@
 // Define the broadcast address as all 0xFF.
 const uint8_t BROADCAST_ADDRESS[IPV6_ADDR_LEN] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-// Global sequence number for outgoing packets.
+// Global sequence number for outgoing messages.
 static uint16_t globalSequenceNumber = 0;
 
 // Pointer to the radio instance used by the mesh functions.
@@ -16,59 +16,151 @@ void initIPv6Address(uint8_t nodeId, uint8_t *addr) {
     addr[IPV6_ADDR_LEN - 1] = nodeId;
 }
 
-void printIPv6Address(const uint8_t *addr) {
-    for (int i = 0; i < IPV6_ADDR_LEN; i++) {
-        if (addr[i] < 16)
-            Serial.print("0");
-        Serial.print(addr[i], HEX);
-        if (i < IPV6_ADDR_LEN - 1)
-            Serial.print(":");
-    }
-}
-
 bool ipv6Equal(const uint8_t *addr1, const uint8_t *addr2) { return (memcmp(addr1, addr2, IPV6_ADDR_LEN) == 0); }
 
-void sendIPv6Packet(const uint8_t *srcAddr, const uint8_t *destAddr, const char *message) {
-    if (!meshRadio) {
-        Serial.println("Radio not set in mesh library!");
-        return;
+void ipv6ToString(const uint8_t *addr, char *buffer, size_t bufferLen) {
+    int pos = 0;
+    for (int i = 0; i < IPV6_ADDR_LEN; i++) {
+        if (i > 0) {
+            pos += snprintf(buffer + pos, bufferLen - pos, ":");
+        }
+        pos += snprintf(buffer + pos, bufferLen - pos, "%02X", addr[i]);
     }
-
-    SimpleIPv6Packet packet;
-    packet.version = 6;   // IPv6 version
-    packet.hopLimit = 10; // Initial hop limit
-    packet.sequenceNumber = globalSequenceNumber++;
-    memcpy(packet.source, srcAddr, IPV6_ADDR_LEN);
-    memcpy(packet.destination, destAddr, IPV6_ADDR_LEN);
-    memset(packet.payload, 0, sizeof(packet.payload));
-    strncpy(packet.payload, message, sizeof(packet.payload) - 1);
-
-    // Send the packet using the RadioHead interface.
-    meshRadio->send((uint8_t *)&packet, sizeof(packet));
-    meshRadio->waitPacketSent();
-
-    Serial.print("Sent packet Seq: ");
-    Serial.print(packet.sequenceNumber);
-    Serial.print(" From: ");
-    printIPv6Address(packet.source);
-    Serial.print(" To: ");
-    printIPv6Address(packet.destination);
-    Serial.print(" Msg: ");
-    Serial.println(packet.payload);
 }
 
-void forwardPacket(SimpleIPv6Packet *packet) {
+void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const char *message) {
     if (!meshRadio) {
-        Serial.println("Radio not set in mesh library!");
         return;
     }
+    int msgLen = strlen(message);
+    int fragCount = (msgLen + MAX_PAYLOAD_SIZE - 1) / MAX_PAYLOAD_SIZE;
+    if (fragCount > MAX_FRAGMENTS) {
+        fragCount = MAX_FRAGMENTS;
+    }
+    uint16_t seq = globalSequenceNumber++;
 
+    for (int frag = 0; frag < fragCount; frag++) {
+        IPv6Packet packet;
+        packet.version = 6;
+        packet.hopLimit = 10;
+        packet.sequenceNumber = seq;
+        packet.fragmentIndex = frag;
+        packet.fragmentCount = fragCount;
+
+        int start = frag * MAX_PAYLOAD_SIZE;
+        int remaining = msgLen - start;
+        int fragLen = (remaining > MAX_PAYLOAD_SIZE) ? MAX_PAYLOAD_SIZE : remaining;
+        packet.payloadLength = fragLen;
+
+        memcpy(packet.source, srcAddr, IPV6_ADDR_LEN);
+        memcpy(packet.destination, destAddr, IPV6_ADDR_LEN);
+        memcpy(packet.payload, message + start, fragLen);
+        if (fragLen < MAX_PAYLOAD_SIZE) {
+            memset(packet.payload + fragLen, 0, MAX_PAYLOAD_SIZE - fragLen);
+        }
+        meshRadio->send((uint8_t *)&packet, sizeof(IPv6Packet));
+        meshRadio->waitPacketSent();
+    }
+}
+
+void forwardPacket(IPv6Packet *packet) {
+    if (!meshRadio) {
+        return;
+    }
     if (packet->hopLimit > 0) {
         packet->hopLimit--;
-        meshRadio->send((uint8_t *)packet, sizeof(SimpleIPv6Packet));
+        meshRadio->send((uint8_t *)packet, sizeof(IPv6Packet));
         meshRadio->waitPacketSent();
-
-        Serial.print("Forwarded packet Seq: ");
-        Serial.println(packet->sequenceNumber);
     }
+}
+
+// --- Reassembly Mechanism ---
+#define MAX_REASSEMBLY_CONTEXTS 5
+#define REASSEMBLY_TIMEOUT 30000UL // 30 seconds
+
+typedef struct {
+    bool inUse;
+    uint8_t source[IPV6_ADDR_LEN];
+    uint16_t sequenceNumber;
+    uint8_t expectedFragments;
+    bool received[MAX_FRAGMENTS];
+    uint8_t fragmentLengths[MAX_FRAGMENTS];
+    char buffer[MAX_MESSAGE_SIZE];
+    unsigned long lastUpdate;
+} ReassemblyContext;
+
+static ReassemblyContext reassemblyContexts[MAX_REASSEMBLY_CONTEXTS];
+
+static ReassemblyContext *getReassemblyContext(const IPv6Packet *packet) {
+    unsigned long now = millis();
+    for (int i = 0; i < MAX_REASSEMBLY_CONTEXTS; i++) {
+        if (reassemblyContexts[i].inUse && (now - reassemblyContexts[i].lastUpdate > REASSEMBLY_TIMEOUT)) {
+            reassemblyContexts[i].inUse = false;
+        }
+    }
+    for (int i = 0; i < MAX_REASSEMBLY_CONTEXTS; i++) {
+        if (reassemblyContexts[i].inUse && reassemblyContexts[i].sequenceNumber == packet->sequenceNumber &&
+            ipv6Equal(reassemblyContexts[i].source, packet->source)) {
+            return &reassemblyContexts[i];
+        }
+    }
+    for (int i = 0; i < MAX_REASSEMBLY_CONTEXTS; i++) {
+        if (!reassemblyContexts[i].inUse) {
+            reassemblyContexts[i].inUse = true;
+            memcpy(reassemblyContexts[i].source, packet->source, IPV6_ADDR_LEN);
+            reassemblyContexts[i].sequenceNumber = packet->sequenceNumber;
+            reassemblyContexts[i].expectedFragments = packet->fragmentCount;
+            for (int j = 0; j < MAX_FRAGMENTS; j++) {
+                reassemblyContexts[i].received[j] = false;
+                reassemblyContexts[i].fragmentLengths[j] = 0;
+            }
+            memset(reassemblyContexts[i].buffer, 0, MAX_MESSAGE_SIZE);
+            reassemblyContexts[i].lastUpdate = now;
+            return &reassemblyContexts[i];
+        }
+    }
+    return NULL;
+}
+
+bool reassembleFragment(const IPv6Packet *packet, char *outMessage, size_t outMessageSize) {
+    ReassemblyContext *ctx = getReassemblyContext(packet);
+    if (ctx == NULL) {
+        return false;
+    }
+    ctx->lastUpdate = millis();
+    if (packet->fragmentIndex >= MAX_FRAGMENTS) {
+        return false;
+    }
+    if (ctx->received[packet->fragmentIndex]) {
+        return false;
+    }
+    int offset = packet->fragmentIndex * MAX_PAYLOAD_SIZE;
+    if (offset + packet->payloadLength > MAX_MESSAGE_SIZE) {
+        return false;
+    }
+    memcpy(ctx->buffer + offset, packet->payload, packet->payloadLength);
+    ctx->fragmentLengths[packet->fragmentIndex] = packet->payloadLength;
+    ctx->received[packet->fragmentIndex] = true;
+
+    bool complete = true;
+    for (int i = 0; i < ctx->expectedFragments; i++) {
+        if (!ctx->received[i]) {
+            complete = false;
+            break;
+        }
+    }
+    if (complete) {
+        int totalLength = 0;
+        for (int i = 0; i < ctx->expectedFragments; i++) {
+            totalLength += ctx->fragmentLengths[i];
+        }
+        if ((size_t)totalLength >= outMessageSize) {
+            return false;
+        }
+        memcpy(outMessage, ctx->buffer, totalLength);
+        outMessage[totalLength] = '\0';
+        ctx->inUse = false;
+        return true;
+    }
+    return false;
 }
