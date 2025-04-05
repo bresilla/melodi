@@ -3,10 +3,6 @@
 Node::Node(uint8_t nodeId) : radio(RFM95_CS, RFM95_INT), _nodeId(nodeId) {}
 
 void Node::init() {
-#if defined(LILYGO_TTGO_LORA32_V2)
-    Adafruit_SSD1306 display(128, 64, &Wire, -1);
-#endif
-
     // Initialize Serial.
     Serial.begin(115200);
     unsigned long startMillis = millis();

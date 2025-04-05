@@ -5,6 +5,8 @@ const uint8_t BROADCAST_ADDRESS[IPV6_ADDR_LEN] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
 
 // Global sequence number for outgoing messages.
 static uint16_t globalSequenceNumber = 0;
+// Global packetID counter (0-15). It cycles through 0 to 15.
+static uint8_t globalPacketID = 0;
 
 // Pointer to the radio instance used by the mesh functions.
 static RH_RF95 *meshRadio = nullptr;
@@ -38,12 +40,16 @@ void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const char
         fragCount = MAX_FRAGMENTS;
     }
     uint16_t seq = globalSequenceNumber++;
+    // Get current packetID then increment (mod 16).
+    uint8_t currentPacketID = globalPacketID;
+    globalPacketID = (globalPacketID + 1) % 16;
 
     for (int frag = 0; frag < fragCount; frag++) {
         IPv6Packet packet;
         packet.version = 6;
         packet.hopLimit = 10;
         packet.sequenceNumber = seq;
+        packet.packetID = currentPacketID; // assign the packetID
         packet.fragmentIndex = frag;
         packet.fragmentCount = fragCount;
 
@@ -81,7 +87,7 @@ void forwardPacket(IPv6Packet *packet) {
 typedef struct {
     bool inUse;
     uint8_t source[IPV6_ADDR_LEN];
-    uint16_t sequenceNumber;
+    uint8_t packetID; // Now we key the context by the packetID (from 0 to 15)
     uint8_t expectedFragments;
     bool received[MAX_FRAGMENTS];
     uint8_t fragmentLengths[MAX_FRAGMENTS];
@@ -93,22 +99,24 @@ static ReassemblyContext reassemblyContexts[MAX_REASSEMBLY_CONTEXTS];
 
 static ReassemblyContext *getReassemblyContext(const IPv6Packet *packet) {
     unsigned long now = millis();
+    // Clean up timed-out contexts.
     for (int i = 0; i < MAX_REASSEMBLY_CONTEXTS; i++) {
         if (reassemblyContexts[i].inUse && (now - reassemblyContexts[i].lastUpdate > REASSEMBLY_TIMEOUT)) {
             reassemblyContexts[i].inUse = false;
         }
     }
+    // Look for an existing context matching the sender and packetID.
     for (int i = 0; i < MAX_REASSEMBLY_CONTEXTS; i++) {
-        if (reassemblyContexts[i].inUse && reassemblyContexts[i].sequenceNumber == packet->sequenceNumber &&
-            ipv6Equal(reassemblyContexts[i].source, packet->source)) {
+        if (reassemblyContexts[i].inUse && (reassemblyContexts[i].packetID == packet->packetID) && ipv6Equal(reassemblyContexts[i].source, packet->source)) {
             return &reassemblyContexts[i];
         }
     }
+    // Allocate a new context if available.
     for (int i = 0; i < MAX_REASSEMBLY_CONTEXTS; i++) {
         if (!reassemblyContexts[i].inUse) {
             reassemblyContexts[i].inUse = true;
             memcpy(reassemblyContexts[i].source, packet->source, IPV6_ADDR_LEN);
-            reassemblyContexts[i].sequenceNumber = packet->sequenceNumber;
+            reassemblyContexts[i].packetID = packet->packetID;
             reassemblyContexts[i].expectedFragments = packet->fragmentCount;
             for (int j = 0; j < MAX_FRAGMENTS; j++) {
                 reassemblyContexts[i].received[j] = false;
@@ -119,12 +127,13 @@ static ReassemblyContext *getReassemblyContext(const IPv6Packet *packet) {
             return &reassemblyContexts[i];
         }
     }
-    return NULL;
+    return NULL; // No context available.
 }
 
 bool reassembleFragment(const IPv6Packet *packet, char *outMessage, size_t outMessageSize) {
     ReassemblyContext *ctx = getReassemblyContext(packet);
     if (ctx == NULL) {
+        // No available context.
         return false;
     }
     ctx->lastUpdate = millis();
@@ -132,7 +141,7 @@ bool reassembleFragment(const IPv6Packet *packet, char *outMessage, size_t outMe
         return false;
     }
     if (ctx->received[packet->fragmentIndex]) {
-        return false;
+        return false; // Duplicate fragment.
     }
     int offset = packet->fragmentIndex * MAX_PAYLOAD_SIZE;
     if (offset + packet->payloadLength > MAX_MESSAGE_SIZE) {
@@ -159,7 +168,7 @@ bool reassembleFragment(const IPv6Packet *packet, char *outMessage, size_t outMe
         }
         memcpy(outMessage, ctx->buffer, totalLength);
         outMessage[totalLength] = '\0';
-        ctx->inUse = false;
+        ctx->inUse = false; // Clear the context after reassembly.
         return true;
     }
     return false;

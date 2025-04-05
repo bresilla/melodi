@@ -15,10 +15,12 @@
 extern const uint8_t BROADCAST_ADDRESS[IPV6_ADDR_LEN];
 
 // Unified IPv6 packet structure with fragmentation support.
+// Note: We keep sequenceNumber for backward compatibility, but now add a 4‐bit packetID field (stored in an 8-bit value).
 typedef struct {
     uint8_t version;                    // Always 6 for IPv6
     uint8_t hopLimit;                   // Hop Limit (TTL)
-    uint16_t sequenceNumber;            // Common sequence number for all fragments of a message
+    uint16_t sequenceNumber;            // Global sequence number (still maintained, if needed)
+    uint8_t packetID;                   // New: packet ID (0-15) for differentiating messages
     uint8_t fragmentIndex;              // Index of this fragment (0 if unfragmented)
     uint8_t fragmentCount;              // Total number of fragments (1 if unfragmented)
     uint8_t payloadLength;              // Number of valid bytes in the payload
