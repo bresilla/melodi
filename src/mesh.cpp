@@ -46,12 +46,13 @@ void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const char
 
     for (int frag = 0; frag < fragCount; frag++) {
         IPv6Packet packet;
-        packet.version = 6;
         packet.hopLimit = 10;
         packet.sequenceNumber = seq;
-        packet.packetID = currentPacketID; // assign the packetID
-        packet.fragmentIndex = frag;
-        packet.fragmentCount = fragCount;
+        // Set the packed fragmentation info:
+        packet.fragInfo.packetID = currentPacketID; // 4 bits
+        packet.fragInfo.fragmentIndex = frag;       // 4 bits
+        packet.fragInfo.fragmentCount = fragCount;  // 4 bits
+        packet.fragInfo.reserved = 0;               // Reserved bits
 
         int start = frag * MAX_PAYLOAD_SIZE;
         int remaining = msgLen - start;
@@ -87,7 +88,7 @@ void forwardPacket(IPv6Packet *packet) {
 typedef struct {
     bool inUse;
     uint8_t source[IPV6_ADDR_LEN];
-    uint8_t packetID; // Now we key the context by the packetID (from 0 to 15)
+    uint8_t packetID; // Keyed by the packetID (0-15)
     uint8_t expectedFragments;
     bool received[MAX_FRAGMENTS];
     uint8_t fragmentLengths[MAX_FRAGMENTS];
@@ -107,7 +108,8 @@ static ReassemblyContext *getReassemblyContext(const IPv6Packet *packet) {
     }
     // Look for an existing context matching the sender and packetID.
     for (int i = 0; i < MAX_REASSEMBLY_CONTEXTS; i++) {
-        if (reassemblyContexts[i].inUse && (reassemblyContexts[i].packetID == packet->packetID) && ipv6Equal(reassemblyContexts[i].source, packet->source)) {
+        if (reassemblyContexts[i].inUse && (reassemblyContexts[i].packetID == packet->fragInfo.packetID) &&
+            ipv6Equal(reassemblyContexts[i].source, packet->source)) {
             return &reassemblyContexts[i];
         }
     }
@@ -116,8 +118,8 @@ static ReassemblyContext *getReassemblyContext(const IPv6Packet *packet) {
         if (!reassemblyContexts[i].inUse) {
             reassemblyContexts[i].inUse = true;
             memcpy(reassemblyContexts[i].source, packet->source, IPV6_ADDR_LEN);
-            reassemblyContexts[i].packetID = packet->packetID;
-            reassemblyContexts[i].expectedFragments = packet->fragmentCount;
+            reassemblyContexts[i].packetID = packet->fragInfo.packetID;
+            reassemblyContexts[i].expectedFragments = packet->fragInfo.fragmentCount;
             for (int j = 0; j < MAX_FRAGMENTS; j++) {
                 reassemblyContexts[i].received[j] = false;
                 reassemblyContexts[i].fragmentLengths[j] = 0;
@@ -137,19 +139,19 @@ bool reassembleFragment(const IPv6Packet *packet, char *outMessage, size_t outMe
         return false;
     }
     ctx->lastUpdate = millis();
-    if (packet->fragmentIndex >= MAX_FRAGMENTS) {
+    if (packet->fragInfo.fragmentIndex >= MAX_FRAGMENTS) {
         return false;
     }
-    if (ctx->received[packet->fragmentIndex]) {
+    if (ctx->received[packet->fragInfo.fragmentIndex]) {
         return false; // Duplicate fragment.
     }
-    int offset = packet->fragmentIndex * MAX_PAYLOAD_SIZE;
+    int offset = packet->fragInfo.fragmentIndex * MAX_PAYLOAD_SIZE;
     if (offset + packet->payloadLength > MAX_MESSAGE_SIZE) {
         return false;
     }
     memcpy(ctx->buffer + offset, packet->payload, packet->payloadLength);
-    ctx->fragmentLengths[packet->fragmentIndex] = packet->payloadLength;
-    ctx->received[packet->fragmentIndex] = true;
+    ctx->fragmentLengths[packet->fragInfo.fragmentIndex] = packet->payloadLength;
+    ctx->received[packet->fragInfo.fragmentIndex] = true;
 
     bool complete = true;
     for (int i = 0; i < ctx->expectedFragments; i++) {

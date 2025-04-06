@@ -65,8 +65,9 @@ void Node::poll() {
                     safePrintln(outStr);
                 } else {
                     char fragmentInfo[64];
-                    snprintf(fragmentInfo, sizeof(fragmentInfo), "Received fragment %u of %u from %s", incomingPacket.fragmentIndex,
-                             incomingPacket.fragmentCount, addrStr);
+                    // Use the new FragInfo fields.
+                    snprintf(fragmentInfo, sizeof(fragmentInfo), "Received fragment %u of %u from %s", incomingPacket.fragInfo.fragmentIndex,
+                             incomingPacket.fragInfo.fragmentCount, addrStr);
                     safePrintln(fragmentInfo);
                 }
             } else {
