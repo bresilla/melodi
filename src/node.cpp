@@ -44,6 +44,8 @@ void Node::init() {
 
 void Node::broadcastMessage(const char *message) { sendIPv6Message(nodeAddress, BROADCAST_ADDRESS, message); }
 
+void Node::sendMessage(const char *message, const uint8_t *destAddr) { sendIPv6Message(nodeAddress, destAddr, message); }
+
 void Node::poll() {
     if (radio.waitAvailableTimeout(1000)) {
         uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];

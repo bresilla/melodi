@@ -36,6 +36,7 @@ class Node {
     Node(uint8_t nodeId);
     void init();
     void broadcastMessage(const char *message);
+    void sendMessage(const char *message, const uint8_t *destAddr);
     void poll();
     void safePrint(const char *msg);
     void safePrintln(const char *msg);
