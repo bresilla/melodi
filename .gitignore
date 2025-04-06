@@ -6,3 +6,4 @@
 .ccls-cache
 .direnv
 .vscode
+compile_commands.json
