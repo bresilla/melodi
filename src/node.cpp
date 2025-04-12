@@ -3,9 +3,6 @@
 //
 // Node.cpp - LoRa IPv6 Mesh Node
 //
-// Board-specific pin definitions are assumed to be included via node.h.
-//
-
 // Constructor initializes radio with board-specific pin settings.
 Node::Node(uint8_t nodeId) : radio(RFM95_CS, RFM95_INT), _nodeId(nodeId) {}
 
@@ -42,7 +39,8 @@ void Node::init() {
     const float RF95_FREQ = 868.0;
     if (!radio.setFrequency(RF95_FREQ)) {
         safePrintln("setFrequency failed");
-        while (1) {} // Hang in an infinite loop if frequency setup fails.
+        while (1) {
+        } // Hang in an infinite loop if frequency setup fails.
     }
     // Set TX power.
     radio.setTxPower(23, false);
@@ -55,15 +53,13 @@ void Node::init() {
 }
 
 // broadcastMessage sends a message to the broadcast address.
-void Node::broadcastMessage(const char *message) { 
+void Node::broadcastMessage(const char *message) {
     // For redundancy, here we send each fragment 3 times.
-    sendIPv6Message(nodeAddress, BROADCAST_ADDRESS, message, 3); 
+    sendIPv6Message(nodeAddress, BROADCAST_ADDRESS, message, 3);
 }
 
 // sendMessage sends a message to a specific destination address.
-void Node::sendMessage(const char *message, const uint8_t *destAddr) { 
-    sendIPv6Message(nodeAddress, destAddr, message, 3); 
-}
+void Node::sendMessage(const char *message, const uint8_t *destAddr) { sendIPv6Message(nodeAddress, destAddr, message, 3); }
 
 // poll() listens for incoming packets, filters them,
 // reassembles those addressed for this node (or broadcast),
@@ -84,8 +80,7 @@ void Node::poll() {
                 ipv6ToString(incomingPacket.source, addrStr, sizeof(addrStr));
 
                 // Check if the packet is addressed for this node or is broadcast.
-                if (ipv6Equal(incomingPacket.destination, nodeAddress) || 
-                    ipv6Equal(incomingPacket.destination, BROADCAST_ADDRESS)) {
+                if (ipv6Equal(incomingPacket.destination, nodeAddress) || ipv6Equal(incomingPacket.destination, BROADCAST_ADDRESS)) {
 
                     char reassembledMessage[256];
                     bool complete = reassembleFragment(&incomingPacket, reassembledMessage, sizeof(reassembledMessage));
@@ -95,11 +90,8 @@ void Node::poll() {
                         safePrintln(outStr);
                     } else {
                         char fragmentInfo[64];
-                        snprintf(fragmentInfo, sizeof(fragmentInfo), 
-                                 "Received fragment %u of %u from %s",
-                                 incomingPacket.fragInfo.fragmentIndex,
-                                 incomingPacket.fragInfo.fragmentCount,
-                                 addrStr);
+                        snprintf(fragmentInfo, sizeof(fragmentInfo), "Received fragment %u of %u from %s", incomingPacket.fragInfo.fragmentIndex,
+                                 incomingPacket.fragInfo.fragmentCount, addrStr);
                         safePrintln(fragmentInfo);
                     }
                 } else {
@@ -130,6 +122,4 @@ void Node::safePrintln(const char *msg) {
 }
 
 // Returns a pointer to the radio instance.
-RH_RF95 *Node::getRadio() { 
-    return &radio;
-}
+RH_RF95 *Node::getRadio() { return &radio; }

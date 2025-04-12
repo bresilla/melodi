@@ -7,8 +7,8 @@
 #include <string.h>
 
 #define IPV6_ADDR_LEN 16
-#define MAX_PAYLOAD_SIZE 20 // Maximum bytes per fragment
-#define MAX_FRAGMENTS 10
+#define MAX_PAYLOAD_SIZE 16 // Maximum bytes per fragment
+#define MAX_FRAGMENTS 16
 #define MAX_MESSAGE_SIZE (MAX_FRAGMENTS * MAX_PAYLOAD_SIZE)
 
 // Define a broadcast IPv6 address (all bytes set to 0xFF)
@@ -38,7 +38,7 @@ void setRadio(RH_RF95 *radio);
 void initIPv6Address(uint8_t nodeId, uint8_t *addr);
 bool ipv6Equal(const uint8_t *addr1, const uint8_t *addr2);
 void ipv6ToString(const uint8_t *addr, char *buffer, size_t bufferLen);
-void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const char *message);
+void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const char *message, uint8_t repeatCount);
 void forwardPacket(IPv6Packet *packet);
 bool reassembleFragment(const IPv6Packet *packet, char *outMessage, size_t outMessageSize);
 
