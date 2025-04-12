@@ -7,8 +7,8 @@
 #include <string.h>
 
 #define IPV6_ADDR_LEN 16
-#define MAX_PAYLOAD_SIZE 16 // Maximum bytes per fragment
-#define MAX_FRAGMENTS 16
+#define MAX_PAYLOAD_SIZE 10 // Maximum bytes per fragment
+#define MAX_FRAGMENTS 15
 #define MAX_MESSAGE_SIZE (MAX_FRAGMENTS * MAX_PAYLOAD_SIZE)
 
 // Define a broadcast IPv6 address (all bytes set to 0xFF)

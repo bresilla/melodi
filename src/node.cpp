@@ -120,3 +120,77 @@ void Node::safePrintln(const char *msg) {
 
 // Returns a pointer to the radio instance.
 RH_RF95 *Node::getRadio() { return &radio; }
+
+// The actual payload length is written to *pPayloadLen.
+bool Node::readSerialBinary(uint8_t *dest, uint8_t *payload, size_t *pPayloadLen) {
+    // Define our states.
+    enum State { WAIT_FOR_LENGTH, WAIT_FOR_ADDRESS, WAIT_FOR_PAYLOAD };
+    // Static variables persist between calls.
+    static State state = WAIT_FOR_LENGTH;
+    static uint16_t totalExpected = 0; // Total bytes to be received after the length field.
+    static uint16_t index = 0;
+    // Buffer to hold the destination plus payload.
+    // Maximum: 16 bytes (address) + 4096 bytes (payload) = 4112 bytes.
+    const size_t bufferSize = IPV6_ADDR_LEN + 4096;
+    static uint8_t buffer[bufferSize];
+
+    // Process available serial bytes.
+    while (Serial.available() > 0) {
+        if (state == WAIT_FOR_LENGTH) {
+            // Wait until we can read 2 bytes for totalExpected.
+            if (Serial.available() >= 2) {
+                uint16_t high = (uint8_t)Serial.read();
+                uint16_t low = (uint8_t)Serial.read();
+                totalExpected = (high << 8) | low;
+                // Validate: at least 16 bytes (destination) and no more than 4112.
+                if (totalExpected < IPV6_ADDR_LEN || totalExpected > (IPV6_ADDR_LEN + 4096)) {
+                    // Invalid, reset state.
+                    state = WAIT_FOR_LENGTH;
+                    index = 0;
+                    continue;
+                }
+                index = 0;
+                state = WAIT_FOR_ADDRESS;
+            } else {
+                break; // Not enough data yet.
+            }
+        }
+        if (state == WAIT_FOR_ADDRESS) {
+            // Read exactly 16 bytes for the destination IPv6 address.
+            while (Serial.available() > 0 && index < IPV6_ADDR_LEN) {
+                buffer[index++] = Serial.read();
+            }
+            if (index >= IPV6_ADDR_LEN) {
+                state = WAIT_FOR_PAYLOAD;
+            } else {
+                break;
+            }
+        }
+        if (state == WAIT_FOR_PAYLOAD) {
+            uint16_t payloadLength = totalExpected - IPV6_ADDR_LEN;
+            while (Serial.available() > 0 && index < (IPV6_ADDR_LEN + payloadLength)) {
+                buffer[index++] = Serial.read();
+            }
+            if (index >= (IPV6_ADDR_LEN + payloadLength)) {
+                // Complete packet received.
+                // Copy out destination IPv6 address.
+                memcpy(dest, buffer, IPV6_ADDR_LEN);
+                // Write payload length.
+                if (pPayloadLen) {
+                    *pPayloadLen = payloadLength;
+                }
+                // Copy out payload if any.
+                if (payload && payloadLength > 0) {
+                    memcpy(payload, buffer + IPV6_ADDR_LEN, payloadLength);
+                }
+                // Reset state.
+                state = WAIT_FOR_LENGTH;
+                index = 0;
+                return true;
+            } else {
+                break; // Waiting for more payload bytes.
+            }
+        }
+    }
+    return false; // No complete packet available yet.
+}

@@ -41,6 +41,7 @@ class Node {
     void safePrint(const char *msg);
     void safePrintln(const char *msg);
     RH_RF95 *getRadio();
+    bool readSerialBinary(uint8_t *dest, uint8_t *payload, size_t *pPayloadLen);
 
   private:
     uint8_t nodeAddress[IPV6_ADDR_LEN];
