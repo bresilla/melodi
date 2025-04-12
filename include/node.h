@@ -35,8 +35,8 @@ class Node {
   public:
     Node(uint8_t nodeId);
     void init();
-    void broadcastMessage(const char *message);
-    void sendMessage(const char *message, const uint8_t *destAddr);
+    void broadcastMessage(const char *message, uint8_t repeatCount);
+    void sendMessage(const char *message, const uint8_t *destAddr, uint8_t repeatCount);
     void poll();
     void safePrint(const char *msg);
     void safePrintln(const char *msg);

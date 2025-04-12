@@ -1,4 +1,5 @@
 #include "node.h"
+#include <string>
 
 #define MY_NODE_ID 30
 
@@ -15,9 +16,11 @@ void setup() {
 void loop() {
     unsigned long currentMillis = millis();
 
+    std::string message = "This is a long message that exceeds the 20 byte payload size and must be fragmented and reassembled adn was sent from node 30";
+
     if (currentMillis - previousMillis > interval) {
         previousMillis = currentMillis;
-        node.broadcastMessage("This is a long message that exceeds the 20 byte payload size and must be fragmented and reassembled adn was sent from node 30");
+        node.broadcastMessage(message.c_str(), 1);
     }
 
     node.poll();

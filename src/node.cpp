@@ -52,14 +52,11 @@ void Node::init() {
     initIPv6Address(_nodeId, nodeAddress);
 }
 
-// broadcastMessage sends a message to the broadcast address.
-void Node::broadcastMessage(const char *message) {
-    // For redundancy, here we send each fragment 3 times.
-    sendIPv6Message(nodeAddress, BROADCAST_ADDRESS, message, 3);
-}
+//  broadcastMessage sends a message to the broadcast address.
+void Node::broadcastMessage(const char *message, uint8_t repeatCount) { sendIPv6Message(nodeAddress, BROADCAST_ADDRESS, message, repeatCount); }
 
 // sendMessage sends a message to a specific destination address.
-void Node::sendMessage(const char *message, const uint8_t *destAddr) { sendIPv6Message(nodeAddress, destAddr, message, 3); }
+void Node::sendMessage(const char *message, const uint8_t *destAddr, uint8_t repeatCount) { sendIPv6Message(nodeAddress, destAddr, message, repeatCount); }
 
 // poll() listens for incoming packets, filters them,
 // reassembles those addressed for this node (or broadcast),
