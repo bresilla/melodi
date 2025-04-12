@@ -47,12 +47,11 @@ void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const char
     for (int frag = 0; frag < fragCount; frag++) {
         IPv6Packet packet;
         packet.hopLimit = 10;
-        packet.sequenceNumber = seq;
         // Set the packed fragmentation info:
         packet.fragInfo.packetID = currentPacketID; // 4 bits
         packet.fragInfo.fragmentIndex = frag;       // 4 bits
         packet.fragInfo.fragmentCount = fragCount;  // 4 bits
-        packet.fragInfo.reserved = 0;               // Reserved bits
+        packet.fragInfo.sequenceNumber = seq;
 
         int start = frag * MAX_PAYLOAD_SIZE;
         int remaining = msgLen - start;
