@@ -22,11 +22,7 @@ elif ! [ -x "$(command -v gum)" ]; then
 fi
 
 get_board() {
-    board=$(pio device list --json-output | jq -c '.[] | select(.hwid != "n/a")' | gum choose)
-    if [ -z "$board" ]; then
-        echo "No board found"
-        exit 1
-    fi
+    board=$(pio device list --json-output | jq -c '.[] | select(.hwid != "n/a")' | gum choose --limit=1 --select-if-one)
     hid=$(echo "$board" | jq -r ".hwid" | cut -d" " -f2 | cut -d"=" -f2)
     serial_value=$(echo "$board" | jq -r ".hwid" | cut -d" " -f3 | cut -d"=" -f2)
     env_value=${deviceMap[$hid]:-"unknown"}
@@ -47,12 +43,22 @@ build() {
 
 # @cmd upload to board
 # @alias u
+# @option    --ipv6 <IPV6>    IPv6 address to send to
+# @flag      --no-confirm     Don't ask for confirmation before uploading
 upload() {
     IFS="|" read board_env board_port board_serial < <(get_board)
     export BOARD_ENV=$board_env
     export BOARD_PORT=$board_port
     export BOARD_SERIAL=$board_serial
-    gum confirm --default "Do you want to upload to device??" && pio -f -c vim run -e $board_env -t upload --upload-port $board_port
+    if ! [ -z "$argc_ipv6" ]; then
+        export BOARD_IPV6=$argc_ipv6
+    fi
+
+    if ! [ -z "$argc_no_confirm" ]; then
+        pio -f -c vim run -e $board_env -t upload --upload-port $board_port
+    else
+        gum confirm --default "Do you want to upload to device??" && pio -f -c vim run -e $board_env -t upload --upload-port $board_port
+    fi
 }
 
 # @cmd refresh build files
@@ -74,13 +80,17 @@ monitor() {
 
 # @cmd test with script/send.py
 # @alias t
+# @option    --content <CONTENT>    Content to send
+# @option    --ipv6 <IPV6>    IPv6 address to send to
 test() {
     IFS="|" read board_env board_port board_serial < <(get_board)
     export BOARD_ENV=$board_env
     export BOARD_PORT=$board_port
     export BOARD_SERIAL=$board_serial
-    ipv6=$(gum input --placeholder="IPV6 to send, defaults to FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF")
-    python3 script/send.py --port $board_port --address $ipv6
+    if [ -z "$argc_ipv6" ]; then
+        args_ipv6=$(gum input --placeholder="IPV6 to send, defaults to FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF")
+    fi
+    python3 script/send.py --port $board_port --address $args_ipv6
 }
 
 eval "$(argc --argc-eval "$0" "$@")"
