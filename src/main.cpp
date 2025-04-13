@@ -21,20 +21,25 @@ void loop() {
     count++;
     unsigned long currentMillis = millis();
 
-    if (currentMillis - previousMillis > interval) {
-        previousMillis = currentMillis;
-        node.broadcastMessage(message.c_str(), 1);
-    }
+    // if (currentMillis - previousMillis > interval) {
+    //     previousMillis = currentMillis;
+    //     node.broadcastMessage(message.c_str(), 1);
+    // }
+
     uint8_t dest[IPV6_ADDR_LEN];
     size_t payloadLength = 0;
     uint8_t payload[4096];
     bool received = node.readSerialBinary(dest, payload, &payloadLength);
 
     if (received) {
-        char addrStr[48];
-        ipv6ToString(dest, addrStr, sizeof(addrStr));
-        // node.safePrint("Received message and is directed to ");
-        // node.safePrintln(addrStr);
+        char addrDestStr[48];
+        ipv6ToString(dest, addrDestStr, sizeof(addrDestStr));
+        node.safePrint("Message to ");
+        node.safePrintln(addrDestStr);
+        node.safePrint(" from ");
+        char addrNodeStr[48];
+        ipv6ToString(node.getIPV6(), addrNodeStr, sizeof(addrNodeStr));
+        node.safePrintln(addrNodeStr);
         node.sendMessage(payload, sizeof(payload), dest, 2);
     }
 
