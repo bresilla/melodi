@@ -34,8 +34,9 @@
 
 class Node {
   public:
-    Node(uint8_t nodeId);
+    Node(uint64_t ipv6_first, uint64_t ipv6_last);
     void init();
+    // void init(uint8_t *addr);
     void broadcastMessage(const char *message, uint8_t repeatCount);
     void broadcastMessage(const uint8_t *message, size_t messageLen, uint8_t repeatCount);
     void sendMessage(const char *message, const uint8_t *destAddr, uint8_t repeatCount);
@@ -50,7 +51,8 @@ class Node {
   private:
     uint8_t nodeAddress[IPV6_ADDR_LEN];
     RH_RF95 radio; // radio instance constructed with board-specific pins
-    uint8_t _nodeId;
+    uint64_t ipv6_first;
+    uint64_t ipv6_last;
 };
 
 #endif

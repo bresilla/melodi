@@ -1,14 +1,18 @@
 #include "node.h"
 #include <string>
 
-#ifndef MY_NODE_ID
-#define MY_NODE_ID 0
+#ifndef IPV6_FIRST
+#define IPV6_FIRST 0
+#endif
+
+#ifndef IPV6_LAST
+#define IPV6_LAST 0
 #endif
 
 unsigned long previousMillis = 0;
 const long interval = 5000; // Broadcast every 5 seconds.
 
-Node node(MY_NODE_ID);
+Node node(IPV6_FIRST, IPV6_LAST);
 
 int count = 0;
 
@@ -46,7 +50,10 @@ void loop() {
         node.sendMessage(payload, sizeof(payload), dest, 2);
     }
 
-    node.safePrintln("Polling for the %u time... from node %u", count, addrNodeStr);
+    node.safePrint("[");
+    node.safePrint(addrNodeStr);
+    node.safePrint("]   ");
+    node.safePrintln("Polling for the %u time ... ", count);
 
     node.poll();
 }

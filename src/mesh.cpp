@@ -12,9 +12,20 @@ static RH_RF95 *meshRadio = nullptr;
 
 void setRadio(RH_RF95 *radio) { meshRadio = radio; }
 
-void initIPv6Address(uint8_t nodeId, uint8_t *addr) {
+void toIPv6Address(uint8_t nodeId, uint8_t *addr) {
     memset(addr, 0, IPV6_ADDR_LEN);
     addr[IPV6_ADDR_LEN - 1] = nodeId;
+}
+
+void toIPv6Address(uint64_t ipv6_first, uint64_t ipv6_last, uint8_t *nodeAddress) {
+    // Extract 8 bytes from ipv6_first (most significant to least significant)
+    for (int i = 0; i < 8; i++) {
+        nodeAddress[i] = (ipv6_first >> ((7 - i) * 8)) & 0xFF;
+    }
+    // Extract 8 bytes from ipv6_last
+    for (int i = 0; i < 8; i++) {
+        nodeAddress[i + 8] = (ipv6_last >> ((7 - i) * 8)) & 0xFF;
+    }
 }
 
 bool ipv6Equal(const uint8_t *addr1, const uint8_t *addr2) { return (memcmp(addr1, addr2, IPV6_ADDR_LEN) == 0); }

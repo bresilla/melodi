@@ -4,7 +4,10 @@
 // Node.cpp - LoRa IPv6 Mesh Node
 //
 // Constructor initializes radio with board-specific pin settings.
-Node::Node(uint8_t nodeId) : radio(RFM95_CS, RFM95_INT), _nodeId(nodeId) {}
+Node::Node(uint64_t ipv6_first, uint64_t ipv6_last) : radio(RFM95_CS, RFM95_INT) {
+    this->ipv6_first = ipv6_first;
+    this->ipv6_last = ipv6_last;
+}
 
 // Initialize the node: Serial, Radio, and IPv6 address.
 void Node::init() {
@@ -49,7 +52,8 @@ void Node::init() {
     setRadio(&radio);
 
     // Initialize this node's IPv6 address using its node ID.
-    initIPv6Address(_nodeId, nodeAddress);
+    // nodeAddress[IPV6_ADDR_LEN - 1] = 30;
+    toIPv6Address(ipv6_first, ipv6_last, nodeAddress);
 }
 
 uint8_t *Node::getIPV6() { return nodeAddress; }
