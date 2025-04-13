@@ -49,8 +49,8 @@ class Node {
     uint8_t *getIPV6();
 
   private:
-    uint8_t nodeAddress[IPV6_ADDR_LEN];
     RH_RF95 radio; // radio instance constructed with board-specific pins
+    uint8_t nodeAddress[IPV6_ADDR_LEN];
     uint64_t ipv6_first;
     uint64_t ipv6_last;
 };

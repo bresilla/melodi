@@ -51,8 +51,7 @@ void Node::init() {
     // Pass the radio pointer to the mesh layer.
     setRadio(&radio);
 
-    // Initialize this node's IPv6 address using its node ID.
-    // nodeAddress[IPV6_ADDR_LEN - 1] = 30;
+    // Initialize this node's IPv6 address using ipv6_first and ipv6_last.
     toIPv6Address(ipv6_first, ipv6_last, nodeAddress);
 }
 
