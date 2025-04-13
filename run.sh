@@ -57,7 +57,7 @@ upload() {
     if ! [ -z "$argc_no_confirm" ]; then
         pio -f -c vim run -e $board_env -t upload --upload-port $board_port
     else
-        gum confirm --default "Do you want to upload to device??" && pio -f -c vim run -e $board_env -t upload --upload-port $board_port
+        gum confirm --default "Do you want to upload to device \"$board_env\" at port \"$board_port\"??" && pio -f -c vim run -e $board_env -t upload --upload-port $board_port
     fi
 }
 
