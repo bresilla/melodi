@@ -36,10 +36,6 @@ class Node {
   public:
     Node(uint64_t ipv6_first, uint64_t ipv6_last);
     void init();
-    // void init(uint8_t *addr);
-    void broadcastMessage(const char *message, uint8_t repeatCount);
-    void broadcastMessage(const uint8_t *message, size_t messageLen, uint8_t repeatCount);
-    void sendMessage(const char *message, const uint8_t *destAddr, uint8_t repeatCount);
     void sendMessage(const uint8_t *message, size_t messageLen, const uint8_t *destAddr, uint8_t repeatCount);
     void poll();
     RH_RF95 *getRadio();

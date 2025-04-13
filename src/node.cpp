@@ -57,25 +57,6 @@ void Node::init() {
 
 uint8_t *Node::getIPV6() { return nodeAddress; }
 
-void Node::broadcastMessage(const char *message, uint8_t repeatCount) {
-    safePrintln("Broadcasting message");
-    sendIPv6Message(nodeAddress, BROADCAST_ADDRESS, message, repeatCount);
-}
-
-void Node::broadcastMessage(const uint8_t *message, size_t messageLen, uint8_t repeatCount) {
-    safePrintln("Broadcasting binary message");
-    sendIPv6Message(nodeAddress, BROADCAST_ADDRESS, message, messageLen, repeatCount);
-}
-
-void Node::sendMessage(const char *message, const uint8_t *destAddr, uint8_t repeatCount) {
-    char dest_add[48];
-    ipv6ToString(destAddr, dest_add, sizeof(dest_add));
-    char src_add[48];
-    ipv6ToString(nodeAddress, src_add, sizeof(src_add));
-    safePrintln("Sending message to %s from %s", dest_add, src_add);
-    sendIPv6Message(nodeAddress, destAddr, message, repeatCount);
-}
-
 void Node::sendMessage(const uint8_t *message, size_t messageLen, const uint8_t *destAddr, uint8_t repeatCount) {
     char dest_add[48];
     ipv6ToString(destAddr, dest_add, sizeof(dest_add));
