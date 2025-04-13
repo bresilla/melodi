@@ -1,13 +1,10 @@
-import os
-import platformio
-import serial
 import subprocess
 import json
 
 Import("env")
 
 # nodeid in ipv6 format
-ipv6_first = 0x65
+ipv6_first = 0x00
 ipv6_last = 0x65
 board_serial = None
 
@@ -29,7 +26,14 @@ if port:
 
 
 if board_serial:
-    ipv6_last = int(board_serial, 16)
+    # ipv6_last = int(board_serial, 16)
+    if len(board_serial) > 16:
+        board_serial = board_serial[-16:]
+    try:
+        ipv6_last = int(board_serial, 16)
+    except ValueError as e:
+        print("Error converting serial to int:", e)
+        ipv6_last = 0
 
 
 # env.Append(CCFLAGS=["MY_NODE_ID=32"])
