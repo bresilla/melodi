@@ -179,27 +179,36 @@ static ReassemblyContext *getReassemblyContext(const IPv6Packet *packet) {
     return NULL; // No context available.
 }
 
-bool reassembleFragment(const IPv6Packet *packet, char *outMessage, size_t outMessageSize) {
+bool reassembleFragment(const IPv6Packet *packet, char *outMessage, size_t outMessageSize, uint8_t *actualLength) {
     ReassemblyContext *ctx = getReassemblyContext(packet);
     if (ctx == NULL) {
         // No available context.
         return false;
     }
+
     // Update the last update time.
     ctx->lastUpdate = millis();
+
+    // Validate fragment index.
     if (packet->fragInfo.fragmentIndex >= MAX_FRAGMENTS) {
         return false;
     }
+
+    // If already received, ignore duplicate.
     if (ctx->received[packet->fragInfo.fragmentIndex]) {
-        return false; // Duplicate fragment.
-    }
-    int offset = packet->fragInfo.fragmentIndex * MAX_PAYLOAD_SIZE;
-    if (offset + packet->payloadLength > MAX_MESSAGE_SIZE) {
         return false;
     }
-    memcpy(ctx->buffer + offset, packet->payload, packet->payloadLength);
-    ctx->fragmentLengths[packet->fragInfo.fragmentIndex] = packet->payloadLength;
-    ctx->received[packet->fragInfo.fragmentIndex] = true;
+
+    // Calculate the storage slot offset for this fragment.
+    int slot = packet->fragInfo.fragmentIndex;
+    if ((slot * MAX_PAYLOAD_SIZE) + packet->payloadLength > MAX_MESSAGE_SIZE) {
+        return false;
+    }
+
+    // Store the fragment in its fixed slot.
+    memcpy(ctx->buffer + slot * MAX_PAYLOAD_SIZE, packet->payload, packet->payloadLength);
+    ctx->fragmentLengths[slot] = packet->payloadLength;
+    ctx->received[slot] = true;
 
     // Check if all expected fragments have been received.
     bool complete = true;
@@ -208,8 +217,11 @@ bool reassembleFragment(const IPv6Packet *packet, char *outMessage, size_t outMe
             complete = false;
             break;
         }
+        *actualLength = ctx->fragmentLengths[i];
     }
+
     if (complete) {
+        // Compute total length from individual fragment lengths.
         int totalLength = 0;
         for (int i = 0; i < ctx->expectedFragments; i++) {
             totalLength += ctx->fragmentLengths[i];
@@ -217,9 +229,18 @@ bool reassembleFragment(const IPv6Packet *packet, char *outMessage, size_t outMe
         if ((size_t)totalLength >= outMessageSize) {
             return false;
         }
-        memcpy(outMessage, ctx->buffer, totalLength);
-        ctx->inUse = false; // Clear context after successful reassembly.
+
+        // Copy each fragment's data sequentially into the outMessage buffer.
+        int outOffset = 0;
+        for (int i = 0; i < ctx->expectedFragments; i++) {
+            memcpy(outMessage + outOffset, ctx->buffer + i * MAX_PAYLOAD_SIZE, ctx->fragmentLengths[i]);
+            outOffset += ctx->fragmentLengths[i];
+        }
+
+        // Clear the context after successful reassembly.
+        ctx->inUse = false;
         return true;
     }
+
     return false;
 }

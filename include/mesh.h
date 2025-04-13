@@ -42,7 +42,7 @@ bool ipv6Equal(const uint8_t *addr1, const uint8_t *addr2);
 void ipv6ToString(const uint8_t *addr, char *buffer, size_t bufferLen);
 void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const uint8_t *message, size_t msgLen, uint8_t repeatCount);
 void forwardPacket(IPv6Packet *packet);
-bool reassembleFragment(const IPv6Packet *packet, char *outMessage, size_t outMessageSize);
+bool reassembleFragment(const IPv6Packet *packet, char *outMessage, size_t outMessageSize, uint8_t *actualLength);
 void safePrint(const char *format, ...);
 void safePrintln(const char *format, ...);
 

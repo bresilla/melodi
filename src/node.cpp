@@ -88,9 +88,15 @@ void Node::poll() {
                 if (ipv6Equal(incomingPacket.destination, nodeAddress) || ipv6Equal(incomingPacket.destination, BROADCAST_ADDRESS)) {
 
                     char reassembledMessage[MAX_MESSAGE_SIZE];
-                    bool complete = reassembleFragment(&incomingPacket, reassembledMessage, sizeof(reassembledMessage));
+                    uint8_t actualLength = 0;
+                    bool complete = reassembleFragment(&incomingPacket, reassembledMessage, sizeof(reassembledMessage), &actualLength);
                     if (complete) {
-                        safePrintln("Reassembled message from %s: %s", addrStr, reassembledMessage);
+                        // safePrintln("Reassembled message from %s", addrStr);
+                        // safePrintln("Total reassembled length: %d", actualLength);
+                        char actualMessage[actualLength + 1];
+                        memcpy(actualMessage, reassembledMessage, actualLength);
+                        actualMessage[actualLength] = '\0';
+                        safePrintln(actualMessage);
                     } else {
                         safePrintln("Fragment %u/%u from %s", incomingPacket.fragInfo.fragmentIndex, incomingPacket.fragInfo.fragmentCount, addrStr);
                     }
