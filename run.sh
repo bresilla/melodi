@@ -4,6 +4,7 @@
 declare -A deviceMap
 deviceMap["1A86:55D4"]="ttgo"
 deviceMap["239A:800B"]="m0"
+deviceMap["239A:80F1"]="rpi"
 
 #check if argc executable is available
 if ! [ -x "$(command -v argc)" ]; then
@@ -74,8 +75,12 @@ monitor() {
 # @cmd test with script/send.py
 # @alias t
 test() {
-    gum input --placeholder="FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF"
-    python3 script/send.py
+    IFS="|" read board_env board_port board_serial < <(get_board)
+    export BOARD_ENV=$board_env
+    export BOARD_PORT=$board_port
+    export BOARD_SERIAL=$board_serial
+    ipv6=$(gum input --placeholder="IPV6 to send, defaults to FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF")
+    python3 script/send.py --port $board_port --address $ipv6
 }
 
 eval "$(argc --argc-eval "$0" "$@")"
