@@ -110,7 +110,7 @@ void Node::poll() {
                         safePrintln(outStr);
                     } else {
                         char fragmentInfo[64];
-                        snprintf(fragmentInfo, sizeof(fragmentInfo), "Received fragment %u of %u from %s", incomingPacket.fragInfo.fragmentIndex,
+                        snprintf(fragmentInfo, sizeof(fragmentInfo), "Fragment %u/%u from %s", incomingPacket.fragInfo.fragmentIndex,
                                  incomingPacket.fragInfo.fragmentCount, addrStr);
                         safePrintln(fragmentInfo);
                     }
@@ -153,13 +153,12 @@ void Node::safePrintln(const char *format, ...) {
 // Returns a pointer to the radio instance.
 RH_RF95 *Node::getRadio() { return &radio; }
 
-// The actual payload length is written to *pPayloadLen.
 bool Node::readSerialBinary(uint8_t *dest, uint8_t *payload, size_t *pPayloadLen) {
     // Define our states.
     enum State { WAIT_FOR_LENGTH, WAIT_FOR_ADDRESS, WAIT_FOR_PAYLOAD };
     // Static variables persist between calls.
     static State state = WAIT_FOR_LENGTH;
-    static uint16_t totalExpected = 0; // Total bytes to be received after the length field.
+    static uint16_t payloadLength = 0; // Payload length as read from header.
     static uint16_t index = 0;
     // Buffer to hold the destination plus payload.
     // Maximum: 16 bytes (address) + 4096 bytes (payload) = 4112 bytes.
@@ -169,18 +168,19 @@ bool Node::readSerialBinary(uint8_t *dest, uint8_t *payload, size_t *pPayloadLen
     // Process available serial bytes.
     while (Serial.available() > 0) {
         if (state == WAIT_FOR_LENGTH) {
-            // Wait until we can read 2 bytes for totalExpected.
+            // Wait until we can read 2 bytes for the payload length.
             if (Serial.available() >= 2) {
                 uint16_t high = (uint8_t)Serial.read();
                 uint16_t low = (uint8_t)Serial.read();
-                totalExpected = (high << 8) | low;
-                // Validate: at least 16 bytes (destination) and no more than 4112.
-                if (totalExpected < IPV6_ADDR_LEN || totalExpected > (IPV6_ADDR_LEN + 4096)) {
-                    // Invalid, reset state.
+                payloadLength = (high << 8) | low;
+                // Check that the payload length does not exceed the maximum (4096).
+                if (payloadLength > 4096) {
+                    // Invalid header, reset state.
                     state = WAIT_FOR_LENGTH;
                     index = 0;
                     continue;
                 }
+                // Reset index for new packet.
                 index = 0;
                 state = WAIT_FOR_ADDRESS;
             } else {
@@ -195,27 +195,27 @@ bool Node::readSerialBinary(uint8_t *dest, uint8_t *payload, size_t *pPayloadLen
             if (index >= IPV6_ADDR_LEN) {
                 state = WAIT_FOR_PAYLOAD;
             } else {
-                break;
+                break; // Not enough address bytes yet.
             }
         }
         if (state == WAIT_FOR_PAYLOAD) {
-            uint16_t payloadLength = totalExpected - IPV6_ADDR_LEN;
+            // In Option 2, we expect payloadLength bytes of payload.
+            // Since index already holds IPV6_ADDR_LEN bytes,
+            // we continue until total index equals IPV6_ADDR_LEN + payloadLength.
             while (Serial.available() > 0 && index < (IPV6_ADDR_LEN + payloadLength)) {
                 buffer[index++] = Serial.read();
             }
             if (index >= (IPV6_ADDR_LEN + payloadLength)) {
                 // Complete packet received.
-                // Copy out destination IPv6 address.
+                // Copy out the destination IPv6 address.
                 memcpy(dest, buffer, IPV6_ADDR_LEN);
-                // Write payload length.
-                if (pPayloadLen) {
-                    *pPayloadLen = payloadLength;
-                }
-                // Copy out payload if any.
+                // Write the actual payload length.
+                *pPayloadLen = payloadLength;
+                // Copy out the payload (if any).
                 if (payload && payloadLength > 0) {
                     memcpy(payload, buffer + IPV6_ADDR_LEN, payloadLength);
                 }
-                // Reset state.
+                // Reset state for the next packet.
                 state = WAIT_FOR_LENGTH;
                 index = 0;
                 return true;

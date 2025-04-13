@@ -47,13 +47,13 @@ void loop() {
         node.safePrintln(addrDestStr);
         node.safePrint(" from ");
         node.safePrintln(addrNodeStr);
-        node.sendMessage(payload, sizeof(payload), dest, 2);
+        node.sendMessage(payload, payloadLength, dest, 1);
     }
 
-    node.safePrint("[");
-    node.safePrint(addrNodeStr);
-    node.safePrint("]   ");
-    node.safePrintln("Polling for the %u time ... ", count);
+    // node.safePrint("[");
+    // node.safePrint(addrNodeStr);
+    // node.safePrint("]   ");
+    // node.safePrintln("Polling for the %u time ... ", count);
 
     node.poll();
 }

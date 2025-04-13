@@ -32,11 +32,33 @@ bool ipv6Equal(const uint8_t *addr1, const uint8_t *addr2) { return (memcmp(addr
 
 void ipv6ToString(const uint8_t *addr, char *buffer, size_t bufferLen) {
     int pos = 0;
-    for (int i = 0; i < IPV6_ADDR_LEN; i++) {
-        if (i > 0) {
+    for (int group = 0; group < 8; group++) {
+        if (group > 0) {
             pos += snprintf(buffer + pos, bufferLen - pos, ":");
         }
-        pos += snprintf(buffer + pos, bufferLen - pos, "%02X", addr[i]);
+        pos += snprintf(buffer + pos, bufferLen - pos, "%02X%02X", addr[2 * group], addr[2 * group + 1]);
+    }
+}
+
+void safePrint(const char *format, ...) {
+    if (Serial) {
+        char buffer[128]; // Adjust the buffer size as needed.
+        va_list args;
+        va_start(args, format);
+        vsnprintf(buffer, sizeof(buffer), format, args);
+        va_end(args);
+        Serial.print(buffer);
+    }
+}
+
+void safePrintln(const char *format, ...) {
+    if (Serial) {
+        char buffer[128]; // Adjust the buffer size as needed.
+        va_list args;
+        va_start(args, format);
+        vsnprintf(buffer, sizeof(buffer), format, args);
+        va_end(args);
+        Serial.println(buffer);
     }
 }
 
@@ -48,6 +70,7 @@ void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const char
     int msgLen = strlen(message);
     // Calculate number of fragments required.
     int fragCount = (msgLen + MAX_PAYLOAD_SIZE - 1) / MAX_PAYLOAD_SIZE;
+    safePrintln("Sending message with %d fragments", fragCount);
     if (fragCount > MAX_FRAGMENTS) {
         fragCount = MAX_FRAGMENTS; // Optionally log that message was truncated.
     }
@@ -94,7 +117,9 @@ void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const uint
     }
 
     // Calculate number of fragments required.
+    safePrintln("Message length: %d", msgLen);
     int fragCount = (msgLen + MAX_PAYLOAD_SIZE - 1) / MAX_PAYLOAD_SIZE;
+    safePrintln("Sending message with %d fragments", fragCount);
     if (fragCount > MAX_FRAGMENTS) {
         fragCount = MAX_FRAGMENTS; // Optionally log that message was truncated.
     }

@@ -26,15 +26,15 @@ def main():
         print(f"Error: Invalid IPv6 address '{args.address}'.")
         return
 
+    print(f"Destination IPv6 address: {args.address}")
+
     # Define the binary payload.
     payload = b"Hello, this is a test message from Python!"
 
-    # Compute the total length which is the sum of the destination address bytes and payload bytes.
-    # Note: The total length must be between 16 and 4112 bytes.
-    total_length = len(dest_addr) + len(payload)
+    # Pack the payload length into 2 bytes in big-endian format.
+    header = struct.pack(">H", len(payload))
 
-    # Pack the total_length into 2 bytes in big-endian format.
-    header = struct.pack(">H", total_length)
+    print(f"Payload length: {len(payload)}")
 
     # Construct the packet: [Total Length (2 bytes)] [Destination (16 bytes)] [Payload (N bytes)]
     packet = header + dest_addr + payload

@@ -89,6 +89,9 @@ test() {
     export BOARD_SERIAL=$board_serial
     if [ -z "$argc_ipv6" ]; then
         args_ipv6=$(gum input --placeholder="IPV6 to send, defaults to FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF")
+        if [ -z "$args_ipv6" ]; then
+            args_ipv6="FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF"
+        fi
     fi
     python3 script/send.py --port $board_port --address $args_ipv6
 }

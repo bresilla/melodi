@@ -7,8 +7,8 @@
 #include <string.h>
 
 #define IPV6_ADDR_LEN 16
-#define MAX_PAYLOAD_SIZE 20 // Maximum bytes per fragment
-#define MAX_FRAGMENTS 15
+#define MAX_PAYLOAD_SIZE (16 * 8) // Maximum bits per fragment
+#define MAX_FRAGMENTS 16
 #define MAX_MESSAGE_SIZE (MAX_FRAGMENTS * MAX_PAYLOAD_SIZE)
 
 // Define a broadcast IPv6 address (all bytes set to 0xFF)
@@ -43,5 +43,7 @@ void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const char
 void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const uint8_t *message, size_t msgLen, uint8_t repeatCount);
 void forwardPacket(IPv6Packet *packet);
 bool reassembleFragment(const IPv6Packet *packet, char *outMessage, size_t outMessageSize);
+void safePrint(const char *format, ...);
+void safePrintln(const char *format, ...);
 
 #endif
