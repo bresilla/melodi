@@ -1,7 +1,10 @@
 #include "node.h"
 #include <string>
 
-#define MY_NODE_ID 30
+// #define MY_NODE_ID 30
+#ifndef MY_NODE_ID
+#error "MY_NODE_ID is not defined. Please define MY_NODE_ID (e.g., via -DMY_NODE_ID=30 or in a header file)."
+#endif
 
 unsigned long previousMillis = 0;
 const long interval = 5000; // Broadcast every 5 seconds.
