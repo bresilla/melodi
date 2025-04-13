@@ -52,11 +52,25 @@ void Node::init() {
     initIPv6Address(_nodeId, nodeAddress);
 }
 
-//  broadcastMessage sends a message to the broadcast address.
-void Node::broadcastMessage(const char *message, uint8_t repeatCount) { sendIPv6Message(nodeAddress, BROADCAST_ADDRESS, message, repeatCount); }
+void Node::broadcastMessage(const char *message, uint8_t repeatCount) {
+    safePrintln("Broadcasting message");
+    sendIPv6Message(nodeAddress, BROADCAST_ADDRESS, message, repeatCount);
+}
 
-// sendMessage sends a message to a specific destination address.
-void Node::sendMessage(const char *message, const uint8_t *destAddr, uint8_t repeatCount) { sendIPv6Message(nodeAddress, destAddr, message, repeatCount); }
+void Node::broadcastMessage(const uint8_t *message, size_t messageLen, uint8_t repeatCount) {
+    safePrintln("Broadcasting binary message");
+    sendIPv6Message(nodeAddress, BROADCAST_ADDRESS, message, messageLen, repeatCount);
+}
+
+void Node::sendMessage(const char *message, const uint8_t *destAddr, uint8_t repeatCount) {
+    safePrintln("Sending message to %s", destAddr);
+    sendIPv6Message(nodeAddress, destAddr, message, repeatCount);
+}
+
+void Node::sendMessage(const uint8_t *message, size_t messageLen, const uint8_t *destAddr, uint8_t repeatCount) {
+    safePrintln("Sending binary message to %s", destAddr);
+    sendIPv6Message(nodeAddress, destAddr, message, messageLen, repeatCount);
+}
 
 // poll() listens for incoming packets, filters them,
 // reassembles those addressed for this node (or broadcast),
@@ -105,16 +119,25 @@ void Node::poll() {
     }
 }
 
-// Safe printing functions that check if Serial is available.
-void Node::safePrint(const char *msg) {
+void Node::safePrint(const char *format, ...) {
     if (Serial) {
-        Serial.print(msg);
+        char buffer[128]; // Adjust the buffer size as needed.
+        va_list args;
+        va_start(args, format);
+        vsnprintf(buffer, sizeof(buffer), format, args);
+        va_end(args);
+        Serial.print(buffer);
     }
 }
 
-void Node::safePrintln(const char *msg) {
+void Node::safePrintln(const char *format, ...) {
     if (Serial) {
-        Serial.println(msg);
+        char buffer[128]; // Adjust the buffer size as needed.
+        va_list args;
+        va_start(args, format);
+        vsnprintf(buffer, sizeof(buffer), format, args);
+        va_end(args);
+        Serial.println(buffer);
     }
 }
 

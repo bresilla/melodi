@@ -77,6 +77,54 @@ void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const char
     }
 }
 
+void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const uint8_t *message, size_t msgLen, uint8_t repeatCount) {
+    if (!meshRadio) {
+        return;
+    }
+
+    // Calculate number of fragments required.
+    int fragCount = (msgLen + MAX_PAYLOAD_SIZE - 1) / MAX_PAYLOAD_SIZE;
+    if (fragCount > MAX_FRAGMENTS) {
+        fragCount = MAX_FRAGMENTS; // Optionally log that message was truncated.
+    }
+
+    // Get a global sequence (only the lower 4 bits are used) and a packetID.
+    uint16_t seq = globalSequenceNumber++;
+    uint8_t currentPacketID = globalPacketID;
+    globalPacketID = (globalPacketID + 1) % 16;
+
+    // Loop over each fragment.
+    for (int frag = 0; frag < fragCount; frag++) {
+        IPv6Packet packet;
+        packet.hopLimit = 10;
+        // Fill in the FragInfo structure:
+        packet.fragInfo.packetID = currentPacketID; // Packet identifier.
+        packet.fragInfo.fragmentIndex = frag;       // Fragment index.
+        packet.fragInfo.fragmentCount = fragCount;  // Total number of fragments.
+        packet.fragInfo.sequenceNumber = seq & 0x0F;
+
+        int start = frag * MAX_PAYLOAD_SIZE;
+        int remaining = msgLen - start;
+        int fragLen = (remaining > MAX_PAYLOAD_SIZE) ? MAX_PAYLOAD_SIZE : remaining;
+        packet.payloadLength = fragLen;
+
+        memcpy(packet.source, srcAddr, IPV6_ADDR_LEN);
+        memcpy(packet.destination, destAddr, IPV6_ADDR_LEN);
+        memcpy(packet.payload, message + start, fragLen);
+
+        // Zero-pad if necessary.
+        if (fragLen < MAX_PAYLOAD_SIZE) {
+            memset(packet.payload + fragLen, 0, MAX_PAYLOAD_SIZE - fragLen);
+        }
+
+        // Transmit each fragment repeatCount times.
+        for (uint8_t r = 0; r < repeatCount; r++) {
+            meshRadio->send((uint8_t *)&packet, sizeof(IPv6Packet));
+            meshRadio->waitPacketSent();
+        }
+    }
+}
+
 void forwardPacket(IPv6Packet *packet) {
     if (!meshRadio) {
         return;

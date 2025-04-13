@@ -6,6 +6,7 @@
 #include <RH_RF95.h>
 #include <SPI.h>
 #include <Wire.h>
+#include <stdarg.h>
 
 // Board-specific pin definitions.
 #if defined(__AVR_ATmega32U4__)
@@ -36,10 +37,12 @@ class Node {
     Node(uint8_t nodeId);
     void init();
     void broadcastMessage(const char *message, uint8_t repeatCount);
+    void broadcastMessage(const uint8_t *message, size_t messageLen, uint8_t repeatCount);
     void sendMessage(const char *message, const uint8_t *destAddr, uint8_t repeatCount);
+    void sendMessage(const uint8_t *message, size_t messageLen, const uint8_t *destAddr, uint8_t repeatCount);
     void poll();
-    void safePrint(const char *msg);
-    void safePrintln(const char *msg);
+    void safePrint(const char *format, ...);
+    void safePrintln(const char *format, ...);
     RH_RF95 *getRadio();
     bool readSerialBinary(uint8_t *dest, uint8_t *payload, size_t *pPayloadLen);
 
