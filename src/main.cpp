@@ -1,9 +1,8 @@
 #include "node.h"
 #include <string>
 
-// #define MY_NODE_ID 30
 #ifndef MY_NODE_ID
-#error "MY_NODE_ID is not defined. Please define MY_NODE_ID (e.g., via -DMY_NODE_ID=30 or in a header file)."
+#define MY_NODE_ID 0
 #endif
 
 unsigned long previousMillis = 0;
@@ -34,19 +33,20 @@ void loop() {
     uint8_t payload[4096];
     bool received = node.readSerialBinary(dest, payload, &payloadLength);
 
+    char addrNodeStr[48];
+    ipv6ToString(node.getIPV6(), addrNodeStr, sizeof(addrNodeStr));
+
     if (received) {
         char addrDestStr[48];
         ipv6ToString(dest, addrDestStr, sizeof(addrDestStr));
         node.safePrint("Message to ");
         node.safePrintln(addrDestStr);
         node.safePrint(" from ");
-        char addrNodeStr[48];
-        ipv6ToString(node.getIPV6(), addrNodeStr, sizeof(addrNodeStr));
         node.safePrintln(addrNodeStr);
         node.sendMessage(payload, sizeof(payload), dest, 2);
     }
 
-    node.safePrintln("Polling for the %u time...", count);
+    node.safePrintln("Polling for the %u time... from node %u", count, addrNodeStr);
 
     node.poll();
 }
