@@ -15,17 +15,16 @@
 extern const uint8_t BROADCAST_ADDRESS[IPV6_ADDR_LEN];
 extern const uint8_t IGNORE_ADDRESS[IPV6_ADDR_LEN];
 
-// Pack packetID, fragmentIndex, and fragmentCount into 16 bits.
-typedef struct {
+// Pack packetID, fragmentIndex, and fragmentTotal into 16 bits.
+typedef struct __attribute__((packed)) {
     uint16_t packetID : 4;       // 0-15
     uint16_t fragmentIndex : 4;  // 0-15 (max 16 fragments)
-    uint16_t fragmentCount : 4;  // 0-15 (max 16 fragments)
+    uint16_t fragmentTotal : 4;  // 0-15 (max 16 fragments)
     uint16_t sequenceNumber : 4; // Reserved for future use
 } FragInfo;
 
 // Unified IPv6 packet structure with fragmentation support.
-// Removed version field since it's constant (always 6).
-typedef struct {
+typedef struct __attribute__((packed)) {
     FragInfo fragInfo;                  // Packed field for packetID, fragmentIndex, and fragmentCount
     uint8_t hopLimit;                   // Hop Limit (TTL)
     uint8_t payloadLength;              // Number of valid bytes in the payload

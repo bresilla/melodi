@@ -90,7 +90,7 @@ void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const uint
         // Fill in the FragInfo structure:
         packet.fragInfo.packetID = currentPacketID; // Packet identifier.
         packet.fragInfo.fragmentIndex = frag;       // Fragment index.
-        packet.fragInfo.fragmentCount = fragCount;  // Total number of fragments.
+        packet.fragInfo.fragmentTotal = fragCount;  // Total number of fragments.
         packet.fragInfo.sequenceNumber = seq & 0x0F;
 
         int start = frag * MAX_PAYLOAD_SIZE;
@@ -166,7 +166,7 @@ static ReassemblyContext *getReassemblyContext(const IPv6Packet *packet) {
             memcpy(reassemblyContexts[i].source, packet->source, IPV6_ADDR_LEN);
             reassemblyContexts[i].packetID = packet->fragInfo.packetID;
             reassemblyContexts[i].sequenceNumber = packet->fragInfo.sequenceNumber;
-            reassemblyContexts[i].expectedFragments = packet->fragInfo.fragmentCount;
+            reassemblyContexts[i].expectedFragments = packet->fragInfo.fragmentTotal;
             for (int j = 0; j < MAX_FRAGMENTS; j++) {
                 reassemblyContexts[i].received[j] = false;
                 reassemblyContexts[i].fragmentLengths[j] = 0;

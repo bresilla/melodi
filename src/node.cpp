@@ -66,6 +66,8 @@ void Node::sendMessage(const uint8_t *message, size_t messageLen, const uint8_t 
     sendIPv6Message(nodeAddress, destAddr, message, messageLen, repeatCount);
 }
 
+
+
 // poll() listens for incoming packets, filters them,
 // reassembles those addressed for this node (or broadcast),
 // and forwards others.
@@ -91,14 +93,13 @@ void Node::poll() {
                     uint8_t actualLength = 0;
                     bool complete = reassembleFragment(&incomingPacket, reassembledMessage, sizeof(reassembledMessage), &actualLength);
                     if (complete) {
-                        // safePrintln("Reassembled message from %s", addrStr);
-                        // safePrintln("Total reassembled length: %d", actualLength);
-                        char actualMessage[actualLength + 1];
-                        memcpy(actualMessage, reassembledMessage, actualLength);
-                        actualMessage[actualLength] = '\0';
-                        safePrintln(actualMessage);
+                        safePrintln("Total reassembled length: %d", actualLength);
+                        // char actualMessage[actualLength + 1];
+                        // memcpy(actualMessage, reassembledMessage, actualLength);
+                        // actualMessage[actualLength] = '\0';
+                        // safePrintln(actualMessage);
                     } else {
-                        safePrintln("Fragment %u/%u from %s", incomingPacket.fragInfo.fragmentIndex, incomingPacket.fragInfo.fragmentCount, addrStr);
+                        safePrintln("Fragment %u/%u from %s", incomingPacket.fragInfo.fragmentIndex, incomingPacket.fragInfo.fragmentTotal, addrStr);
                     }
                 } else if (ipv6Equal(incomingPacket.destination, IGNORE_ADDRESS)) {
                     // Ignore this packet.

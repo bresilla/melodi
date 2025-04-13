@@ -29,7 +29,7 @@ def main():
     print(f"Destination IPv6 address: {args.address}")
 
     # Define the binary payload.
-    payload = b"Hello, this is a test message from Python!"
+    payload = b"Hello, this is a test message ksdhfkajshdfksajfhklas faskdfh askdjfhas kldhas dfhaskldjfh asdklfhaskdljfhasdkjfhas dkjfha sdkjfh asdkljhf asdkfjh askdlfh asdhf aifuhewifhas ifnaskdjfask djfn aksjfn asidjf ajsndkjnasd fkjna skdjn fkajnsd kjn fkjsan dkjfn askjdnf akjsn dfkasnd ffrom Python!"
 
     # Pack the payload length into 2 bytes in big-endian format.
     header = struct.pack(">H", len(payload))
