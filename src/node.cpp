@@ -68,16 +68,20 @@ void Node::broadcastMessage(const uint8_t *message, size_t messageLen, uint8_t r
 }
 
 void Node::sendMessage(const char *message, const uint8_t *destAddr, uint8_t repeatCount) {
-    char buffer[48];
-    ipv6ToString(destAddr, buffer, sizeof(buffer));
-    safePrintln("Sending message to %s", buffer);
+    char dest_add[48];
+    ipv6ToString(destAddr, dest_add, sizeof(dest_add));
+    char src_add[48];
+    ipv6ToString(nodeAddress, src_add, sizeof(src_add));
+    safePrintln("Sending message to %s from %s", dest_add, src_add);
     sendIPv6Message(nodeAddress, destAddr, message, repeatCount);
 }
 
 void Node::sendMessage(const uint8_t *message, size_t messageLen, const uint8_t *destAddr, uint8_t repeatCount) {
-    char buffer[48];
-    ipv6ToString(destAddr, buffer, sizeof(buffer));
-    safePrintln("Sending binary message to %s", buffer);
+    char dest_add[48];
+    ipv6ToString(destAddr, dest_add, sizeof(dest_add));
+    char src_add[48];
+    ipv6ToString(nodeAddress, src_add, sizeof(src_add));
+    safePrintln("Sending binary message to %s from %s", dest_add, src_add);
     sendIPv6Message(nodeAddress, destAddr, message, messageLen, repeatCount);
 }
 
@@ -102,18 +106,15 @@ void Node::poll() {
                 // Check if the packet is addressed for this node or is broadcast.
                 if (ipv6Equal(incomingPacket.destination, nodeAddress) || ipv6Equal(incomingPacket.destination, BROADCAST_ADDRESS)) {
 
-                    char reassembledMessage[256];
+                    char reassembledMessage[MAX_MESSAGE_SIZE];
                     bool complete = reassembleFragment(&incomingPacket, reassembledMessage, sizeof(reassembledMessage));
                     if (complete) {
-                        char outStr[128];
-                        snprintf(outStr, sizeof(outStr), "Reassembled message from %s: %s", addrStr, reassembledMessage);
-                        safePrintln(outStr);
+                        safePrintln("Reassembled message from %s: %s", addrStr, reassembledMessage);
                     } else {
-                        char fragmentInfo[64];
-                        snprintf(fragmentInfo, sizeof(fragmentInfo), "Fragment %u/%u from %s", incomingPacket.fragInfo.fragmentIndex,
-                                 incomingPacket.fragInfo.fragmentCount, addrStr);
-                        safePrintln(fragmentInfo);
+                        safePrintln("Fragment %u/%u from %s", incomingPacket.fragInfo.fragmentIndex, incomingPacket.fragInfo.fragmentCount, addrStr);
                     }
+                } else if (ipv6Equal(incomingPacket.destination, IGNORE_ADDRESS)) {
+                    // Ignore this packet.
                 } else {
                     // This packet is not destined for us.
                     // Adjust hopLimit (if non-zero) and forward the packet.
@@ -125,28 +126,6 @@ void Node::poll() {
         } else {
             safePrintln("Receive failed");
         }
-    }
-}
-
-void Node::safePrint(const char *format, ...) {
-    if (Serial) {
-        char buffer[128]; // Adjust the buffer size as needed.
-        va_list args;
-        va_start(args, format);
-        vsnprintf(buffer, sizeof(buffer), format, args);
-        va_end(args);
-        Serial.print(buffer);
-    }
-}
-
-void Node::safePrintln(const char *format, ...) {
-    if (Serial) {
-        char buffer[128]; // Adjust the buffer size as needed.
-        va_list args;
-        va_start(args, format);
-        vsnprintf(buffer, sizeof(buffer), format, args);
-        va_end(args);
-        Serial.println(buffer);
     }
 }
 

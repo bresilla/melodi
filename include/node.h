@@ -42,8 +42,6 @@ class Node {
     void sendMessage(const char *message, const uint8_t *destAddr, uint8_t repeatCount);
     void sendMessage(const uint8_t *message, size_t messageLen, const uint8_t *destAddr, uint8_t repeatCount);
     void poll();
-    void safePrint(const char *format, ...);
-    void safePrintln(const char *format, ...);
     RH_RF95 *getRadio();
     bool readSerialBinary(uint8_t *dest, uint8_t *payload, size_t *pPayloadLen);
     uint8_t *getIPV6();

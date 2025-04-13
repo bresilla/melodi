@@ -13,6 +13,7 @@
 
 // Define a broadcast IPv6 address (all bytes set to 0xFF)
 extern const uint8_t BROADCAST_ADDRESS[IPV6_ADDR_LEN];
+extern const uint8_t IGNORE_ADDRESS[IPV6_ADDR_LEN];
 
 // Pack packetID, fragmentIndex, and fragmentCount into 16 bits.
 typedef struct {

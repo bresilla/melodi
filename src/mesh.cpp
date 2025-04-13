@@ -3,6 +3,9 @@
 // Define the broadcast address as all 0xFF.
 const uint8_t BROADCAST_ADDRESS[IPV6_ADDR_LEN] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
+// Define the ignore address as all 0x00.
+const uint8_t IGNORE_ADDRESS[IPV6_ADDR_LEN] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
 // Global counters for packet sequencing.
 static uint16_t globalSequenceNumber = 0; // Will be used for the 4-bit sequenceNumber (lower 4 bits).
 static uint8_t globalPacketID = 0;        // Cycles 0-15.
@@ -42,7 +45,7 @@ void ipv6ToString(const uint8_t *addr, char *buffer, size_t bufferLen) {
 
 void safePrint(const char *format, ...) {
     if (Serial) {
-        char buffer[128]; // Adjust the buffer size as needed.
+        char buffer[MAX_PAYLOAD_SIZE]; // Adjust the buffer size as needed.
         va_list args;
         va_start(args, format);
         vsnprintf(buffer, sizeof(buffer), format, args);
@@ -53,7 +56,7 @@ void safePrint(const char *format, ...) {
 
 void safePrintln(const char *format, ...) {
     if (Serial) {
-        char buffer[128]; // Adjust the buffer size as needed.
+        char buffer[MAX_PAYLOAD_SIZE]; // Adjust the buffer size as needed.
         va_list args;
         va_start(args, format);
         vsnprintf(buffer, sizeof(buffer), format, args);
@@ -80,7 +83,7 @@ void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const char
     globalPacketID = (globalPacketID + 1) % 16;
 
     // Loop over each fragment.
-    for (int frag = 0; frag < fragCount; frag++) {
+    for (int frag = 0; frag <= fragCount; frag++) {
         IPv6Packet packet;
         packet.hopLimit = 10;
         // Fill in the FragInfo structure:
