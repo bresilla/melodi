@@ -15,11 +15,6 @@ static RH_RF95 *meshRadio = nullptr;
 
 void setRadio(RH_RF95 *radio) { meshRadio = radio; }
 
-void toIPv6Address(uint8_t nodeId, uint8_t *addr) {
-    memset(addr, 0, IPV6_ADDR_LEN);
-    addr[IPV6_ADDR_LEN - 1] = nodeId;
-}
-
 void toIPv6Address(uint64_t ipv6_first, uint64_t ipv6_last, uint8_t *nodeAddress) {
     // Extract 8 bytes from ipv6_first (most significant to least significant)
     for (int i = 0; i < 8; i++) {
@@ -85,12 +80,11 @@ void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const uint
     // Loop over each fragment.
     for (int frag = 0; frag < fragCount; frag++) {
         IPv6Packet packet;
-        packet.hopLimit = 10;
         // Fill in the FragInfo structure:
         packet.fragInfo.packetID = currentPacketID; // Packet identifier.
+        packet.fragInfo.hopLimit = 10;              // Hop limit (TTL)
         packet.fragInfo.fragmentIndex = frag;       // Fragment index.
         packet.fragInfo.fragmentTotal = fragCount;  // Total number of fragments.
-        packet.fragInfo.sequenceNumber = seq & 0x0F;
 
         int start = frag * MAX_PAYLOAD_SIZE;
         int remaining = msgLen - start;
@@ -120,126 +114,163 @@ void forwardPacket(IPv6Packet *packet) {
     if (!meshRadio) {
         return;
     }
-    if (packet->hopLimit > 0) {
-        packet->hopLimit--;
+    if (packet->fragInfo.hopLimit > 0) {
+        packet->fragInfo.hopLimit--;
         meshRadio->send((uint8_t *)packet, sizeof(IPv6Packet));
         meshRadio->waitPacketSent();
     }
 }
 
-// --- Simplified Reassembly Mechanism ---
-#define MAX_REASSEMBLY_CONTEXTS 20
-#define REASSEMBLY_TIMEOUT 30000UL // 30 seconds
+// Assume a function millis() exists that returns an unsigned long (milliseconds since start).
+extern unsigned long millis(void);
 
-typedef struct {
-    bool active;
-    uint8_t source[IPV6_ADDR_LEN];
-    uint8_t packetID;
-    uint8_t sequence;
-    uint8_t totalFragments;
-    bool fragmentsReceived[MAX_FRAGMENTS];
-    uint8_t fragLengths[MAX_FRAGMENTS];
-    char dataBuffer[MAX_MESSAGE_SIZE];
-    unsigned long lastUpdate;
-} ReassemblyContext;
+/*---------------------------------------------------------------------------
+  Function: createOrUpdateContext
+  Description:
+    Given a packet fragment, either locate an existing reassembly context for
+    that message or create a new one (or reclaim an old one) if none exists.
+    The fragment payload is placed at the appropriate offset in the context’s
+    dataBuffer based on its fragment index.
+---------------------------------------------------------------------------*/
+void createOrUpdateContext(const IPv6Packet *packet) {
+    uint8_t fragIndex = packet->fragInfo.fragmentIndex;
+    uint8_t fragTotal = packet->fragInfo.fragmentTotal;
 
-static ReassemblyContext contexts[MAX_REASSEMBLY_CONTEXTS];
+    // Determine if this is a broadcast packet.
+    bool isBroadcast = (memcmp(packet->destination, BROADCAST_ADDRESS, IPV6_ADDR_LEN) == 0);
 
-// Resets a given reassembly context to its default (unused) state.
-static void resetContext(ReassemblyContext *ctx) {
-    ctx->active = false;
-    memset(ctx->fragmentsReceived, 0, sizeof(ctx->fragmentsReceived));
-    memset(ctx->fragLengths, 0, sizeof(ctx->fragLengths));
-    memset(ctx->dataBuffer, 0, sizeof(ctx->dataBuffer));
-}
-
-// Finds an existing context that matches the packet’s identifiers,
-// or creates and initializes a new one if available.
-static ReassemblyContext *findOrCreateContext(const IPv6Packet *pkt) {
     unsigned long now = millis();
-    ReassemblyContext *freeCtx = NULL;
+    ReassemblyContext *context = NULL;
 
+    // Search for an existing context that matches this message.
     for (int i = 0; i < MAX_REASSEMBLY_CONTEXTS; i++) {
-        // Expire old contexts.
-        if (contexts[i].active && (now - contexts[i].lastUpdate > REASSEMBLY_TIMEOUT)) {
-            resetContext(&contexts[i]);
-        }
-        // Check for an existing context matching this packet.
-        if (contexts[i].active && contexts[i].packetID == pkt->fragInfo.packetID && contexts[i].sequence == pkt->fragInfo.sequenceNumber &&
-            ipv6Equal(contexts[i].source, pkt->source)) {
-            return &contexts[i];
-        }
-        // Track the first available free context.
-        if (!contexts[i].active && freeCtx == NULL) {
-            freeCtx = &contexts[i];
-        }
-    }
-
-    if (freeCtx) {
-        // Initialize free context with packet details.
-        freeCtx->active = true;
-        memcpy(freeCtx->source, pkt->source, IPV6_ADDR_LEN);
-        freeCtx->packetID = pkt->fragInfo.packetID;
-        freeCtx->sequence = pkt->fragInfo.sequenceNumber;
-        freeCtx->totalFragments = pkt->fragInfo.fragmentTotal;
-        freeCtx->lastUpdate = now;
-        return freeCtx;
-    }
-    return NULL; // No context available.
-}
-
-// Processes an incoming fragment for reassembly.
-// - 'pkt': The received IPv6 packet fragment.
-// - 'outMessage': Output buffer for the reassembled message.
-// - 'outMsgSize': Size of the output buffer.
-// - 'finalLength': Pointer to the variable that will hold the total message length.
-bool reassembleFragment(const IPv6Packet *pkt, char *outMessage, size_t outMsgSize, uint8_t *finalLength) {
-    ReassemblyContext *ctx = findOrCreateContext(pkt);
-    if (ctx == NULL) {
-        // No available context.
-        return false;
-    }
-
-    // Update the context's timestamp.
-    ctx->lastUpdate = millis();
-
-    uint8_t fragIdx = pkt->fragInfo.fragmentIndex;
-    if (fragIdx >= MAX_FRAGMENTS) {
-        return false;
-    }
-    if (ctx->fragmentsReceived[fragIdx]) {
-        // Duplicate fragment.
-        return false;
-    }
-
-    // Determine where this fragment should be placed.
-    int offset = fragIdx * MAX_PAYLOAD_SIZE;
-    if (offset + pkt->payloadLength > MAX_MESSAGE_SIZE) {
-        return false;
-    }
-    memcpy(ctx->dataBuffer + offset, pkt->payload, pkt->payloadLength);
-    ctx->fragLengths[fragIdx] = pkt->payloadLength;
-    ctx->fragmentsReceived[fragIdx] = true;
-
-    // Check if all fragments have been received.
-    bool complete = true;
-    *finalLength = 0;
-    for (uint8_t i = 0; i < ctx->totalFragments; i++) {
-        *finalLength += ctx->fragLengths[i];
-        if (!ctx->fragmentsReceived[i]) {
-            complete = false;
+        if (contexts[i].active && (contexts[i].packetID == packet->fragInfo.packetID) && (contexts[i].broadcast == isBroadcast) &&
+            (memcmp(contexts[i].source, packet->source, IPV6_ADDR_LEN) == 0)) {
+            context = &contexts[i];
             break;
         }
     }
-    if (complete) {
-        if (*finalLength >= outMsgSize) {
-            return false;
+
+    // If no matching context found, allocate a new one.
+    if (context == NULL) {
+        // Try to find an inactive context.
+        for (int i = 0; i < MAX_REASSEMBLY_CONTEXTS; i++) {
+            if (!contexts[i].active) {
+                context = &contexts[i];
+                break;
+            }
         }
-        memcpy(outMessage, ctx->dataBuffer, *finalLength);
-        outMessage[*finalLength] = '\0';
-        // Clear the context after successful reassembly.
-        resetContext(ctx);
-        return true;
+        // If all contexts are active, reclaim the oldest one.
+        if (context == NULL) {
+            int oldestIndex = 0;
+            unsigned long oldestTime = contexts[0].lastUpdate;
+            for (int i = 1; i < MAX_REASSEMBLY_CONTEXTS; i++) {
+                if (contexts[i].lastUpdate < oldestTime) {
+                    oldestTime = contexts[i].lastUpdate;
+                    oldestIndex = i;
+                }
+            }
+            context = &contexts[oldestIndex];
+        }
+
+        // Initialize the new/reclaimed context.
+        context->active = true;
+        context->broadcast = isBroadcast;
+        memcpy(context->source, packet->source, IPV6_ADDR_LEN);
+        context->packetID = packet->fragInfo.packetID;
+        context->fragmentTotal = fragTotal;
+        context->lastFragmentLength = 0; // Will be set when the last fragment is received
+        for (int i = 0; i < MAX_FRAGMENTS; i++) {
+            context->fragmentsReceived[i] = false;
+        }
+        // Clear the data buffer (optional).
+        memset(context->dataBuffer, 0, MAX_MESSAGE_SIZE);
+    }
+
+    // Update the context with the new fragment.
+    if (fragIndex < MAX_FRAGMENTS) {
+        // Compute the offset in the data buffer.
+        size_t offset = fragIndex * MAX_PAYLOAD_SIZE;
+        // Ensure the payload will not overflow the dataBuffer.
+        if (offset + packet->payloadLength <= MAX_MESSAGE_SIZE) {
+            memcpy(&context->dataBuffer[offset], packet->payload, packet->payloadLength);
+            context->fragmentsReceived[fragIndex] = true;
+        }
+
+        // If this is the last fragment, record its length.
+        if (fragIndex == fragTotal - 1) {
+            context->lastFragmentLength = packet->payloadLength;
+        }
+
+        // Update the last update time.
+        context->lastUpdate = now;
+    }
+}
+
+/*---------------------------------------------------------------------------
+  Function: deleteOldContexts
+  Description:
+    This function checks every active context and disables it if no new
+    fragments have been received within the REASSEMBLY_TIMEOUT interval.
+---------------------------------------------------------------------------*/
+void deleteOldContexts() {
+    unsigned long now = millis();
+
+    for (int i = 0; i < MAX_REASSEMBLY_CONTEXTS; i++) {
+        if (contexts[i].active && (now - contexts[i].lastUpdate > REASSEMBLY_TIMEOUT)) {
+            contexts[i].active = false;
+        }
+    }
+}
+
+/*---------------------------------------------------------------------------
+  Function: getCompletedContext
+  Description:
+    Checks the reassembly contexts for any message that has all of its fragments.
+    If found, it copies the reassembled message into the provided
+    ReassembledPacket structure, marks the context as inactive, and returns true.
+    Otherwise, returns false.
+
+  Note:
+    The total reassembled message length is computed as:
+         (Number of full fragments * MAX_PAYLOAD_SIZE) + lastFragmentLength.
+    Be aware that the ReassembledPacket structure only allocates
+    MAX_PAYLOAD_SIZE bytes for its payload. Adjust this as needed.
+---------------------------------------------------------------------------*/
+bool getCompletedContext(ReassembledPacket *reassembledPacket) {
+    for (int i = 0; i < MAX_REASSEMBLY_CONTEXTS; i++) {
+        if (contexts[i].active) {
+            bool complete = true;
+            // Ensure every fragment from 0 to fragmentTotal - 1 is received.
+            for (int j = 0; j < contexts[i].fragmentTotal; j++) {
+                if (!contexts[i].fragmentsReceived[j]) {
+                    complete = false;
+                    break;
+                }
+            }
+
+            if (complete) {
+                // Fill in the reassembled packet.
+                reassembledPacket->broadcast = contexts[i].broadcast;
+                memcpy(reassembledPacket->source, contexts[i].source, IPV6_ADDR_LEN);
+
+                // Calculate the full length of the assembled message.
+                uint16_t totalLength = ((contexts[i].fragmentTotal - 1) * MAX_PAYLOAD_SIZE) + contexts[i].lastFragmentLength;
+                reassembledPacket->payloadLength = totalLength;
+
+                // IMPORTANT: The provided definition of ReassembledPacket limits the payload to MAX_PAYLOAD_SIZE.
+                // If totalLength exceeds that, you may need to increase the buffer size or handle truncation.
+                if (totalLength > MAX_PAYLOAD_SIZE) {
+                    // For this example, we truncate the message.
+                    totalLength = MAX_PAYLOAD_SIZE;
+                }
+                memcpy(reassembledPacket->payload, contexts[i].dataBuffer, totalLength);
+
+                // Mark this context as processed.
+                contexts[i].active = false;
+                return true;
+            }
+        }
     }
     return false;
 }
