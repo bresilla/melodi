@@ -39,7 +39,8 @@ def read_packet(ser):
 
 
 def main():
-    port = input("Enter serial port (e.g., COM3 or /dev/ttyACM0): ")
+    # port = input("Enter serial port (e.g., COM3 or /dev/ttyACM0): ")
+    port = "/dev/ttyACM0"
     baud_rate = 115200
 
     try:
