@@ -45,6 +45,7 @@ build() {
 # @alias u
 # @option    --ipv6 <IPV6>    IPv6 address to send to
 # @flag      --no-confirm     Don't ask for confirmation before uploading
+# @flag      --monitor        Monitor after upload
 upload() {
     IFS="|" read board_env board_port board_serial < <(get_board)
     export BOARD_ENV=$board_env
@@ -58,6 +59,10 @@ upload() {
         pio -f -c vim run -e $board_env -t upload --upload-port $board_port
     else
         gum confirm --default "Do you want to upload to device \"$board_env\" at port \"$board_port\"??" && pio -f -c vim run -e $board_env -t upload --upload-port $board_port
+        if ! [ -z "$argc_monitor" ]; then
+            sleep 1
+            pio device monitor --baud 115200 --port $board_port
+        fi
     fi
 }
 
