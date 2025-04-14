@@ -60,6 +60,18 @@ void safePrintln(const char *format, ...) {
     }
 }
 
+void serialSendReassembledPacket(ReassembledPacket *reassembledPacket) {
+    if (Serial) {
+        const uint8_t HEADER_MARKER[] = {0xAA, 0xBB, 0xCC, 0xDD};
+        safePrintln("Reassembled message: %d", reassembledPacket->payloadLength);
+        safePrintln("ReassembledPacket size %d", sizeof(ReassembledPacket));
+        // Send the header marker first to signal the start of the packet.
+        Serial.write(HEADER_MARKER, sizeof(HEADER_MARKER));
+        // Then send the entire binary structure.
+        Serial.write((const uint8_t *)reassembledPacket, sizeof(ReassembledPacket));
+    }
+}
+
 void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const uint8_t *message, size_t msgLen, uint8_t repeatCount) {
     if (!meshRadio) {
         return;

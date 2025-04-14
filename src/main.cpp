@@ -21,8 +21,6 @@ void setup() {
     safePrintln("LoRa IPv6 Mesh Node Initialized");
 }
 
-const std::string message = "This is a long message that exceeds the 20 byte payload size and must be fragmented and reassembled adn was sent from node 30";
-
 void loop() {
     count++;
 

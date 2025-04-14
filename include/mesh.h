@@ -67,6 +67,7 @@ void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const uint
 void forwardPacket(IPv6Packet *packet);
 void safePrint(const char *format, ...);
 void safePrintln(const char *format, ...);
+void serialSendReassembledPacket(ReassembledPacket *reassembledPacket);
 
 void createOrUpdateContext(const IPv6Packet *packet);
 void deleteOldContexts();
