@@ -6,13 +6,16 @@ import socket
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Send a binary packet via a serial connection."
+        description="Send a binary packet via a serial connection with a custom string payload."
     )
     parser.add_argument(
         "--port", required=True, help="Serial port to use (e.g., /dev/ttyACM0 or COM3)"
     )
     parser.add_argument(
         "--address", required=True, help="Destination IPv6 address (e.g., 2001:db8::1)"
+    )
+    parser.add_argument(
+        "--payload", required=True, help="Content of the payload as a string."
     )
     args = parser.parse_args()
 
@@ -28,19 +31,18 @@ def main():
 
     print(f"Destination IPv6 address: {args.address}")
 
-    # Define the binary payload.
-    payload = b"Hello, this is a test message ksdhfkajshdfksajfhklas faskdfh askdjfhas kldhas dfhaskldjfh asdklfhaskdljfhasdkjfhas dkjfha sdkjfh asdkljhf asdkfjh askdlfh asdhf aifuhewifhas ifnaskdjfask djfn aksjfn asidjf ajsndkjnasd fkjna skdjn fkajnsd kjn fkjsan dkjfn askjdnf akjsn dfkasnd ffrom Python!"
+    # Convert the provided payload string to bytes using UTF-8 encoding.
+    payload_bytes = args.payload.encode("utf-8")
 
     # Pack the payload length into 2 bytes in big-endian format.
-    header = struct.pack(">H", len(payload))
+    header = struct.pack(">H", len(payload_bytes))
+    print(f"Payload length: {len(payload_bytes)}")
 
-    print(f"Payload length: {len(payload)}")
-
-    # Construct the packet: [Total Length (2 bytes)] [Destination (16 bytes)] [Payload (N bytes)]
-    packet = header + dest_addr + payload
+    # Construct the packet: [Payload Length (2 bytes)] [Destination (16 bytes)] [Payload (N bytes)]
+    packet = header + dest_addr + payload_bytes
 
     try:
-        # Open and write to the serial port.
+        # Open the serial port and send the packet.
         with serial.Serial(port, baud_rate, timeout=1) as ser:
             ser.write(packet)
             print("Packet sent successfully!")

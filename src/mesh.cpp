@@ -235,39 +235,39 @@ void deleteOldContexts() {
     MAX_PAYLOAD_SIZE bytes for its payload. Adjust this as needed.
 ---------------------------------------------------------------------------*/
 bool getCompletedContext(ReassembledPacket *reassembledPacket) {
-    // for (int i = 0; i < MAX_REASSEMBLY_CONTEXTS; i++) {
-    //     if (contexts[i].active) {
-    //         bool complete = true;
-    //         // Ensure every fragment from 0 to fragmentTotal - 1 is received.
-    //         for (int j = 0; j < contexts[i].fragmentTotal; j++) {
-    //             if (!contexts[i].fragmentsReceived[j]) {
-    //                 complete = false;
-    //                 break;
-    //             }
-    //         }
-    //
-    //         if (complete) {
-    //             // Fill in the reassembled packet.
-    //             reassembledPacket->broadcast = contexts[i].broadcast;
-    //             memcpy(reassembledPacket->source, contexts[i].source, IPV6_ADDR_LEN);
-    //
-    //             // Calculate the full length of the assembled message.
-    //             uint16_t totalLength = ((contexts[i].fragmentTotal - 1) * MAX_PAYLOAD_SIZE) + contexts[i].lastFragmentLength;
-    //             reassembledPacket->payloadLength = totalLength;
-    //
-    //             // IMPORTANT: The provided definition of ReassembledPacket limits the payload to MAX_PAYLOAD_SIZE.
-    //             // If totalLength exceeds that, you may need to increase the buffer size or handle truncation.
-    //             if (totalLength > MAX_PAYLOAD_SIZE) {
-    //                 // For this example, we truncate the message.
-    //                 totalLength = MAX_PAYLOAD_SIZE;
-    //             }
-    //             memcpy(reassembledPacket->payload, contexts[i].dataBuffer, totalLength);
-    //
-    //             // Mark this context as processed.
-    //             contexts[i].active = false;
-    //             return true;
-    //         }
-    //     }
-    // }
-    return false;
+    bool complete = false;
+    for (int i = 0; i < MAX_REASSEMBLY_CONTEXTS; i++) {
+        if (contexts[i].active) {
+            // Ensure every fragment from 0 to fragmentTotal - 1 is received.
+            complete = true;
+            for (int j = 0; j < contexts[i].fragmentTotal; j++) {
+                bool frag_present = contexts[i].fragmentsReceived[j];
+                if (!frag_present) {
+                    complete = false;
+                    break;
+                }
+            }
+            if (complete) {
+                safePrintln("Found complete context");
+                // Fill in the reassembled packet.
+                reassembledPacket->broadcast = contexts[i].broadcast;
+                memcpy(reassembledPacket->source, contexts[i].source, IPV6_ADDR_LEN);
+
+                char src_add[48];
+                ipv6ToString(reassembledPacket->source, src_add, sizeof(src_add));
+                safePrintln("Reassembled message from %s", src_add);
+
+                // Calculate the full length of the assembled message.
+                uint16_t totalLength = ((contexts[i].fragmentTotal - 1) * MAX_PAYLOAD_SIZE) + contexts[i].lastFragmentLength;
+                reassembledPacket->payloadLength = totalLength;
+                safePrintln("Payload length: %d", reassembledPacket->payloadLength);
+                memcpy(reassembledPacket->payload, contexts[i].dataBuffer, totalLength);
+
+                // Mark this context as processed.
+                contexts[i].active = false;
+                return true;
+            }
+        }
+    }
+    return complete;
 }

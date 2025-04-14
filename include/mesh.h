@@ -28,7 +28,7 @@ typedef struct {
     uint8_t fragmentTotal;
     uint8_t lastFragmentLength;
     bool fragmentsReceived[MAX_FRAGMENTS];
-    char dataBuffer[MAX_MESSAGE_SIZE];
+    uint8_t dataBuffer[MAX_MESSAGE_SIZE];
     unsigned long lastUpdate;
 } ReassemblyContext;
 
@@ -37,8 +37,8 @@ static ReassemblyContext contexts[MAX_REASSEMBLY_CONTEXTS];
 typedef struct {
     bool broadcast;
     uint8_t source[IPV6_ADDR_LEN];
-    uint8_t payloadLength;
-    uint8_t payload[MAX_PAYLOAD_SIZE];
+    uint16_t payloadLength;
+    uint8_t payload[MAX_MESSAGE_SIZE];
 } ReassembledPacket;
 
 // Fragment info

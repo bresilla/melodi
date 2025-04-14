@@ -98,7 +98,13 @@ test() {
             args_ipv6="FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF"
         fi
     fi
-    python3 script/send.py --port $board_port --address $args_ipv6
+    if [ -z "$args_content" ]; then
+        args_content=$(gum input --placeholder="Sit perferendis nihil omnis. Accusantium voluptas asperiores dignissimos impedit quasi sint. Est laudantium dolorum alias sequi impedit reiciendis sed nostrum. Vitae consequuntur ad earum minima tempore labore. Nulla nesciunt quas culpa ullam. Eos suscipit perferendis repellendus. Rem tenetur in qui fuga ut. Quia quo consequatur modi quia impedit. Nisi porro ut officiis ducimus et id et. Illum quod earum tempore in aut corrupti aut. Eos doloribus ducimus voluptate vero consequatur debitis. Deserunt minima vel itaque sit aut reprehenderit nostrum. Consequuntur laborum optio maiores voluptatum eos occaecati rem.")
+        if [ -z "$args_content" ]; then
+            args_content="Sit perferendis nihil omnis. Accusantium voluptas asperiores dignissimos impedit quasi sint. Est laudantium dolorum alias sequi impedit reiciendis sed nostrum. Vitae consequuntur ad earum minima tempore labore. Nulla nesciunt quas culpa ullam. Eos suscipit perferendis repellendus. Rem tenetur in qui fuga ut. Quia quo consequatur modi quia impedit. Nisi porro ut officiis ducimus et id et. Illum quod earum tempore in aut corrupti aut. Eos doloribus ducimus voluptate vero consequatur debitis. Deserunt minima vel itaque sit aut reprehenderit nostrum. Consequuntur laborum optio maiores voluptatum eos occaecati rem."
+        fi
+    fi
+    python3 script/send.py --port $board_port --address $args_ipv6  --payload "$args_content"
 }
 
 eval "$(argc --argc-eval "$0" "$@")"
