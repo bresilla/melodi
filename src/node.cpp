@@ -103,7 +103,7 @@ void Node::poll() {
     }
     ReassembledPacket completeCtx;
     if (getCompletedContext(&completeCtx)) {
-        safePrintln("Reassembled message: %s", completeCtx.payloadLength);
+        safePrintln("Reassembled message: %d", completeCtx.payloadLength);
     }
     deleteOldContexts();
 }
