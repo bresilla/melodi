@@ -84,10 +84,10 @@ monitor() {
 
 
 # @cmd test with script/send.py
-# @alias t
+# @alias s
 # @option    --content <CONTENT>    Content to send
 # @option    --ipv6 <IPV6>    IPv6 address to send to
-test() {
+send() {
     IFS="|" read board_env board_port board_serial < <(get_board)
     export BOARD_ENV=$board_env
     export BOARD_PORT=$board_port
@@ -106,6 +106,16 @@ test() {
         fi
     fi
     python3 script/send.py --port $board_port --address $args_ipv6  --payload "$args_content"
+}
+
+# @cmd test with script/recv.py
+# @alias g
+get() {
+    IFS="|" read board_env board_port board_serial < <(get_board)
+    export BOARD_ENV=$board_env
+    export BOARD_PORT=$board_port
+    export BOARD_SERIAL=$board_serial
+    python script/recv.py --port $board_port
 }
 
 eval "$(argc --argc-eval "$0" "$@")"
