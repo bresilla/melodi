@@ -1,5 +1,8 @@
 
-# Melodi (**ME**sh **LO**ra **DI**stributed)
+<img align="right" width="26%" src="./misc/logo.png">
+
+Melodi (**ME**sh **LO**ra **DI**stributed)
+===
 
 This project implements an IPv6-based mesh network over LoRa radio using the RadioHead RH_RF95 library. The primary goal is to enable nodes to communicate using IPv6 packets, even though LoRa’s native packet size is limited. To overcome these constraints, the protocol implements fragmentation, reassembly, and a simple hop-based forwarding mechanism.
 
