@@ -236,7 +236,7 @@ bool Node::processSerialCommand() {
                 }
 
                 // Calculate total expected length
-                uint32_t totalExpected = 2 + 16 + payloadLen; // length + IPv6 + payload
+                uint32_t totalExpected = 2 + 1 + 16 + payloadLen; // length + repeat + IPv6 + payload
 
                 // CRITICAL FIX: Check for buffer overflow
                 if (totalExpected > MAX_COMMAND_BUFFER_SIZE) {
@@ -311,10 +311,11 @@ bool Node::executeCommand(uint8_t cmd, const uint8_t *data, size_t len) {
     }
 
     case CMD_SEND_MESSAGE:
-        if (len >= 18) { // At least 2 bytes length + 16 bytes IPv6
+        if (len >= 19) { // At least 2 bytes length + 1 byte repeat + 16 bytes IPv6
             uint16_t payloadLen = (data[0] << 8) | data[1];
-            const uint8_t *destAddr = &data[2];
-            const uint8_t *payload = &data[18];
+            uint8_t repeatCount = data[2];
+            const uint8_t *destAddr = &data[3];
+            const uint8_t *payload = &data[19];
 
             // CRITICAL FIX: Double-check payload size in execute command
             if (payloadLen > MAX_COMMAND_DATA_SIZE) {
@@ -325,15 +326,15 @@ bool Node::executeCommand(uint8_t cmd, const uint8_t *data, size_t len) {
             }
 
             // CRITICAL FIX: Validate actual data length matches expected
-            if (len != 18 + payloadLen) {
-                safePrintln("Execute: Data length mismatch: expected %d, got %d", 18 + payloadLen, len);
+            if (len != 19 + payloadLen) {
+                safePrintln("Execute: Data length mismatch: expected %d, got %d", 19 + payloadLen, len);
                 uint8_t errorData[2] = {cmd, ERR_INVALID_COMMAND};
                 sendResponse(RESP_NACK, errorData, 2);
                 return false;
             }
 
-            safePrintln("Sending message: %d bytes to destination", payloadLen);
-            sendMessage(payload, payloadLen, destAddr, 1);
+            safePrintln("Sending message: %d bytes to destination (repeat: %d)", payloadLen, repeatCount);
+            sendMessage(payload, payloadLen, destAddr, repeatCount);
             sendResponse(RESP_ACK, &cmd, 1);
             return true;
         } else {

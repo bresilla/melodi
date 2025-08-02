@@ -76,8 +76,13 @@ def ipv6_to_bytes(ipv6_str):
     except socket.error:
         return None
 
-def send_message(port, address, payload, timeout=15, node_ip=None):
+def send_message(port, address, payload, timeout=15, node_ip=None, repeat=1):
     """Send a message with proper protocol handling"""
+    # Validate repeat count
+    if repeat < 1 or repeat > 255:
+        print(f"Error: Repeat count must be between 1 and 255 (got {repeat})")
+        return False
+    
     try:
         ser = serial.Serial(port, 115200, timeout=1)
         time.sleep(1)  # Allow device to initialize
@@ -111,9 +116,10 @@ def send_message(port, address, payload, timeout=15, node_ip=None):
         
         print(f"Message length: {msg_len} bytes")
         print(f"Expected fragments: {(msg_len + 127) // 128}")
+        print(f"Repeat count: {repeat}")
         
-        # Build command data: [2 bytes length][16 bytes dest][N bytes payload]
-        data = struct.pack('>H', msg_len) + dest_bytes + msg_bytes
+        # Build command data: [2 bytes length][1 byte repeat][16 bytes dest][N bytes payload]
+        data = struct.pack('>HB', msg_len, repeat) + dest_bytes + msg_bytes
         total_command_size = 1 + len(data)  # CMD byte + data
         
         # Send command
@@ -194,10 +200,11 @@ def main():
     parser.add_argument('--payload', required=True, help='Message to send')
     parser.add_argument('--timeout', type=int, default=15, help='Response timeout in seconds (default: 15)')
     parser.add_argument('--ip', help='Set node IPv6 address before sending (e.g., 2001:db8::1)')
+    parser.add_argument('--repeat', type=int, default=1, help='Number of times to repeat each fragment (default: 1)')
     
     args = parser.parse_args()
     
-    success = send_message(args.port, args.address, args.payload, args.timeout, args.ip)
+    success = send_message(args.port, args.address, args.payload, args.timeout, args.ip, args.repeat)
     sys.exit(0 if success else 1)
 
 if __name__ == "__main__":
