@@ -62,13 +62,26 @@ void safePrintln(const char *format, ...) {
 
 void serialSendReassembledPacket(ReassembledPacket *reassembledPacket) {
     if (Serial) {
-        const uint8_t HEADER_MARKER[] = {0xAA, 0xBB, 0xCC, 0xDD};
-        safePrintln("Reassembled message: %d", reassembledPacket->payloadLength);
-        safePrintln("ReassembledPacket size %d", sizeof(ReassembledPacket));
-        // Send the header marker first to signal the start of the packet.
-        Serial.write(HEADER_MARKER, sizeof(HEADER_MARKER));
-        // Then send the entire binary structure.
-        Serial.write((const uint8_t *)reassembledPacket, sizeof(ReassembledPacket));
+        const uint8_t HEADER[] = {0xAA, 0xBB, 0xCC, 0xDD};
+        Serial.write(HEADER, 4);
+        Serial.write((uint8_t)0x83); // RESP_MESSAGE
+        
+        // Send broadcast flag
+        Serial.write(reassembledPacket->broadcast ? 0x01 : 0x00);
+        
+        // Send source IPv6 (16 bytes)
+        Serial.write(reassembledPacket->source, 16);
+        
+        // Send payload length (2 bytes, big-endian)
+        Serial.write((reassembledPacket->payloadLength >> 8) & 0xFF);
+        Serial.write(reassembledPacket->payloadLength & 0xFF);
+        
+        // Send payload
+        Serial.write(reassembledPacket->payload, reassembledPacket->payloadLength);
+        
+        Serial.flush();
+        
+        safePrintln("Reassembled message sent: %d bytes", reassembledPacket->payloadLength);
     }
 }
 

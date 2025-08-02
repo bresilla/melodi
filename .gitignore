@@ -2,6 +2,7 @@
 .clang_complete
 .gcc-flags.json
 .ccls
+.other
 .cache
 .ccls-cache
 .direnv
