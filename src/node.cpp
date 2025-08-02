@@ -198,7 +198,7 @@ bool Node::processSerialCommand() {
 
             case CMD_SET_CONFIG:
                 state = WAIT_FOR_DATA;
-                expectedLength = 1; // Config type byte
+                expectedLength = 1; // Config type byte first
                 break;
 
             default:
@@ -249,6 +249,32 @@ bool Node::processSerialCommand() {
 
                 expectedLength = (uint16_t)totalExpected;
                 safePrintln("Expecting %d total bytes for message", expectedLength);
+            }
+
+            // Special handling for CMD_SET_CONFIG to determine full length
+            if (currentCmd == CMD_SET_CONFIG && bufferIndex == 1) {
+                uint8_t configType = commandBuffer[0];
+                switch (configType) {
+                case 0x01: // TX Power
+                    expectedLength = 2; // config type + power value
+                    break;
+                case 0x02: // Frequency
+                    expectedLength = 5; // config type + 4 bytes frequency
+                    break;
+                case 0x03: // Hop Limit
+                    expectedLength = 2; // config type + hop limit value
+                    break;
+                case 0x04: // IPv6 Address
+                    expectedLength = 17; // config type + 16 bytes IPv6
+                    break;
+                default:
+                    safePrintln("Unknown config type: 0x%02x", configType);
+                    uint8_t errorData[2] = {currentCmd, ERR_INVALID_COMMAND};
+                    sendResponse(RESP_NACK, errorData, 2);
+                    resetParser();
+                    return false;
+                }
+                safePrintln("CMD_SET_CONFIG type 0x%02x, expecting %d total bytes", configType, expectedLength);
             }
 
             if (bufferIndex >= expectedLength) {
@@ -344,6 +370,18 @@ bool Node::executeCommand(uint8_t cmd, const uint8_t *data, size_t len) {
             case 0x03: // Hop Limit
                 if (len >= 2) {
                     currentHopLimit = data[1];
+                }
+                break;
+            case 0x04: // IPv6 Address
+                if (len >= 17) { // 1 byte config type + 16 bytes IPv6
+                    if (setIPv6Address(&data[1])) {
+                        sendResponse(RESP_ACK, &cmd, 1);
+                        return true;
+                    } else {
+                        uint8_t errorData[2] = {cmd, ERR_INVALID_IPV6};
+                        sendResponse(RESP_NACK, errorData, 2);
+                        return false;
+                    }
                 }
                 break;
             }
