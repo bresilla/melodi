@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-Broadcast Mesh Demo
+Broadcast Mesh Receiver
 
-This script demonstrates broadcast communication over the Melodi LoRa mesh network.
-The PC sends broadcast messages via serial to the connected LoRa node, which 
-transmits them to all nodes in the mesh network (IPv6 address ffff:ffff:...).
+This script demonstrates receiving broadcast messages from the Melodi LoRa mesh network.
+The PC listens for messages via serial from the connected LoRa node, which receives
+transmissions from all nodes in the mesh network.
 
 Usage:
-    python broadcast_demo.py --port /dev/ttyUSB0 --name "Node-A" --interval 15
+    python broadcast_receive.py --port /dev/ttyUSB0 --name "Receiver-Node"
     
 Hardware Setup:
     - Connect LoRa node (TTGO/Feather/etc.) to PC via USB
     - Flash the Melodi firmware to the LoRa node
-    - Run this script on multiple PCs to see mesh broadcast propagation
+    - Run this script to monitor mesh traffic
 """
 
 import serial
@@ -25,8 +25,6 @@ import threading
 from datetime import datetime
 
 # Protocol constants (matching node.h)
-CMD_SEND_MESSAGE = 0x01
-CMD_SET_IPV6 = 0x02
 CMD_GET_STATUS = 0x03
 
 RESP_ACK = 0x80
@@ -36,10 +34,9 @@ RESP_MESSAGE = 0x83
 RESP_ERROR = 0x84
 
 HEADER_MARKER = bytes([0xAA, 0xBB, 0xCC, 0xDD])
-BROADCAST_ADDRESS = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
 
-class MelodiNode:
-    """Interface to communicate with Melodi LoRa node via serial"""
+class MelodiReceiver:
+    """Interface to receive messages from Melodi LoRa node via serial"""
     
     def __init__(self, port, baud_rate=115200):
         self.port = port
@@ -47,7 +44,6 @@ class MelodiNode:
         self.ser = None
         self.running = False
         self.message_stats = {
-            'sent': 0,
             'received': 0,
             'broadcast_received': 0,
             'direct_received': 0
@@ -69,13 +65,6 @@ class MelodiNode:
         if self.ser:
             self.ser.close()
             self.ser = None
-            
-    def ipv6_to_bytes(self, ipv6_str):
-        """Convert IPv6 string to 16 bytes"""
-        try:
-            return socket.inet_pton(socket.AF_INET6, ipv6_str)
-        except socket.error:
-            return None
             
     def bytes_to_ipv6(self, ipv6_bytes):
         """Convert 16 bytes to IPv6 string"""
@@ -137,41 +126,6 @@ class MelodiNode:
             time.sleep(0.01)
         
         return None
-    
-    def send_broadcast(self, message):
-        """Send broadcast message to all nodes"""
-        return self.send_message(BROADCAST_ADDRESS, message)
-    
-    def send_message(self, dest_ipv6, message):
-        """Send message to destination IPv6 address"""
-        dest_bytes = self.ipv6_to_bytes(dest_ipv6)
-        if not dest_bytes:
-            print(f"Invalid IPv6 address: {dest_ipv6}")
-            return False
-        
-        msg_bytes = message.encode('utf-8')
-        msg_len = len(msg_bytes)
-        
-        # Build command data: [2 bytes length][16 bytes dest][N bytes payload]
-        data = struct.pack('>H', msg_len) + dest_bytes + msg_bytes
-        
-        # Send command
-        if not self.send_command(CMD_SEND_MESSAGE, data):
-            return False
-        
-        # Wait for ACK
-        response = self.read_response()
-        if response and len(response) >= 6:
-            response_type = response[4]
-            if response_type == RESP_ACK:
-                self.message_stats['sent'] += 1
-                return True
-            elif response_type == RESP_NACK:
-                error_code = response[6] if len(response) > 6 else 0
-                print(f"Message send failed: error code {error_code}")
-        
-        print("No response to send command")
-        return False
     
     def get_status(self):
         """Get node status"""
@@ -246,40 +200,37 @@ class MelodiNode:
         """Get message statistics"""
         return self.message_stats.copy()
 
-def print_stats(node, node_name):
+def print_stats(receiver, node_name):
     """Print current statistics"""
-    stats = node.get_stats()
+    stats = receiver.get_stats()
     print(f"\n--- {node_name} Statistics ---")
-    print(f"Messages Sent: {stats['sent']}")
     print(f"Messages Received: {stats['received']}")
     print(f"  └─ Broadcast: {stats['broadcast_received']}")
     print(f"  └─ Direct: {stats['direct_received']}")
     print("-" * 30)
 
 def main():
-    parser = argparse.ArgumentParser(description='Broadcast Mesh Demo')
+    parser = argparse.ArgumentParser(description='Broadcast Mesh Receiver')
     parser.add_argument('--port', required=True, help='Serial port (e.g., /dev/ttyUSB0, COM3)')
-    parser.add_argument('--name', default='Unknown', help='Node name for display')
-    parser.add_argument('--interval', type=int, default=15, help='Broadcast interval (seconds)')
-    parser.add_argument('--message', default=None, help='Custom message prefix')
+    parser.add_argument('--name', default='Receiver', help='Node name for display')
     parser.add_argument('--stats-interval', type=int, default=60, help='Stats display interval (seconds)')
+    parser.add_argument('--verbose', action='store_true', help='Show detailed message information')
     
     args = parser.parse_args()
     
-    # Create node interface
-    node = MelodiNode(args.port)
+    # Create receiver interface
+    receiver = MelodiReceiver(args.port)
     
-    if not node.connect():
+    if not receiver.connect():
         sys.exit(1)
     
-    print(f"\n=== Melodi Broadcast Demo ===")
+    print(f"\n=== Melodi Broadcast Receiver ===")
     print(f"Node Name: {args.name}")
-    print(f"Broadcast Interval: {args.interval}s")
-    print(f"Target: ALL NODES (broadcast)")
+    print(f"Mode: RECEIVE ONLY")
     print("=" * 40)
     
     # Get initial status
-    status = node.get_status()
+    status = receiver.get_status()
     if status:
         print(f"Node IPv6: {status['ipv6']}")
         print(f"Radio: {'Active' if status['radio_active'] else 'Inactive'}")
@@ -295,8 +246,9 @@ def main():
     print("Press Ctrl+C to stop")
     print("-" * 40)
     
-    # Track unique sources
+    # Track unique sources and message history
     seen_sources = set()
+    message_history = []
     
     # Message received callback
     def on_message_received(src_ipv6, message, broadcast):
@@ -308,59 +260,76 @@ def main():
             seen_sources.add(src_ipv6)
             print(f"[{timestamp}] *** NEW NODE DISCOVERED: {src_ipv6} ***")
         
+        # Store message in history
+        message_entry = {
+            'timestamp': timestamp,
+            'src': src_ipv6,
+            'message': message,
+            'broadcast': broadcast
+        }
+        message_history.append(message_entry)
+        
+        # Keep only last 100 messages
+        if len(message_history) > 100:
+            message_history.pop(0)
+        
+        # Display message
         print(f"[{timestamp}] RX {msg_type} from {src_ipv6}: {message}")
+        
+        if args.verbose:
+            print(f"    └─ Message Length: {len(message)} bytes")
+            print(f"    └─ Source: {src_ipv6}")
+            print(f"    └─ Type: {msg_type}")
     
     # Start listening for messages
-    node.listen_for_messages(on_message_received)
+    receiver.listen_for_messages(on_message_received)
     
-    # Main broadcast loop
-    message_count = 0
+    # Stats display loop
     last_stats_time = time.time()
     
     try:
         while True:
-            message_count += 1
-            
-            # Generate broadcast message
-            if args.message:
-                message = f"{args.message} from {args.name} #{message_count}"
-            else:
-                message = f"Broadcast announcement from {args.name} - Message #{message_count}"
-            
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            print(f"[{timestamp}] TX BROADCAST: {message}")
-            
-            # Send broadcast
-            success = node.send_broadcast(message)
-            if success:
-                print(f"[{timestamp}] ✓ Broadcast sent successfully")
-            else:
-                print(f"[{timestamp}] ✗ Broadcast send failed")
+            time.sleep(1)
             
             # Display stats periodically
             current_time = time.time()
             if current_time - last_stats_time >= args.stats_interval:
-                print_stats(node, args.name)
+                print_stats(receiver, args.name)
                 print(f"Discovered Nodes: {len(seen_sources)}")
                 if seen_sources:
-                    print("Known Sources:", ", ".join(sorted(seen_sources)))
+                    print("Known Sources:")
+                    for i, src in enumerate(sorted(seen_sources), 1):
+                        print(f"  {i}. {src}")
+                
+                if args.verbose and message_history:
+                    print(f"Recent Messages: {len(message_history)}")
+                    for msg in message_history[-5:]:  # Show last 5 messages
+                        msg_type = "BROADCAST" if msg['broadcast'] else "DIRECT"
+                        print(f"  [{msg['timestamp']}] {msg_type}: {msg['message'][:50]}...")
+                
                 print("-" * 40)
                 last_stats_time = current_time
             
-            # Wait for next broadcast
-            time.sleep(args.interval)
-            
     except KeyboardInterrupt:
         print("\n\nShutting down...")
-        print_stats(node, args.name)
+        print_stats(receiver, args.name)
         print(f"Total Discovered Nodes: {len(seen_sources)}")
+        print(f"Total Messages Received: {len(message_history)}")
+        
         if seen_sources:
             print("Final Node List:")
             for i, src in enumerate(sorted(seen_sources), 1):
                 print(f"  {i}. {src}")
         
-        node.stop_listening()
-        node.disconnect()
+        if args.verbose and message_history:
+            print("\nMessage Summary:")
+            broadcast_count = sum(1 for msg in message_history if msg['broadcast'])
+            direct_count = len(message_history) - broadcast_count
+            print(f"  Broadcast Messages: {broadcast_count}")
+            print(f"  Direct Messages: {direct_count}")
+        
+        receiver.stop_listening()
+        receiver.disconnect()
         print("Disconnected. Goodbye!")
 
 if __name__ == "__main__":

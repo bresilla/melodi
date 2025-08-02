@@ -42,13 +42,12 @@ enum SerialCommand : uint8_t {
     CMD_GET_NEIGHBORS = 0x06
 };
 
-enum ResponseType : uint8_t {
-    RESP_ACK = 0x80,
-    RESP_NACK = 0x81,
-    RESP_STATUS = 0x82,
-    RESP_MESSAGE = 0x83,
-    RESP_ERROR = 0x84
-};
+enum ResponseType : uint8_t { RESP_ACK = 0x80, RESP_NACK = 0x81, RESP_STATUS = 0x82, RESP_MESSAGE = 0x83, RESP_ERROR = 0x84 };
+
+// Command buffer size limits aligned with LoRa capabilities
+#define MAX_COMMAND_DATA_SIZE MAX_MESSAGE_SIZE               // 2048 bytes (from mesh.h)
+#define MAX_COMMAND_BUFFER_SIZE (MAX_COMMAND_DATA_SIZE + 18) // 2066 bytes (payload + 2 len + 16 IPv6)
+#define COMMAND_TIMEOUT 15000                                // 15 seconds timeout for command processing
 
 enum ErrorCode : uint8_t {
     ERR_INVALID_COMMAND = 0x01,
@@ -56,7 +55,8 @@ enum ErrorCode : uint8_t {
     ERR_RADIO_FAILURE = 0x03,
     ERR_BUFFER_OVERFLOW = 0x04,
     ERR_TIMEOUT = 0x05,
-    ERR_CHECKSUM_FAILED = 0x06
+    ERR_CHECKSUM_FAILED = 0x06,
+    ERR_MESSAGE_TOO_LARGE = 0x07
 };
 
 class Node {
@@ -67,40 +67,38 @@ class Node {
     void poll();
     RH_RF95 *getRadio();
     uint8_t *getIPV6();
-    
+
     // Enhanced serial protocol methods
     bool processSerialCommand();
-    void sendResponse(ResponseType type, const uint8_t* data = nullptr, size_t len = 0);
-    bool setIPv6Address(const uint8_t* newAddr);
-    void getStatus(uint8_t* statusBuffer);
+    void sendResponse(ResponseType type, const uint8_t *data = nullptr, size_t len = 0);
+    bool setIPv6Address(const uint8_t *newAddr);
+    void getStatus(uint8_t *statusBuffer);
     void resetToDefaults();
+    void resetCommandParser(); // Reset command parser state
 
   private:
     RH_RF95 radio;
     uint8_t nodeAddress[IPV6_ADDR_LEN];
     uint64_t ipv6_first;
     uint64_t ipv6_last;
-    
+
     // Enhanced protocol state
     uint8_t currentTxPower;
     float currentFrequency;
     uint8_t currentHopLimit;
     unsigned long startTime;
     bool ipv6SetViaSerial;
-    
+
     // Serial command processing state
-    enum CommandState {
-        WAIT_FOR_COMMAND,
-        WAIT_FOR_DATA
-    };
+    enum CommandState { WAIT_FOR_COMMAND, WAIT_FOR_DATA };
     CommandState cmdState;
     uint8_t currentCommand;
     uint16_t expectedDataLength;
     uint16_t receivedDataLength;
     uint8_t commandBuffer[4096 + 16 + 1]; // Max payload + IPv6 + command byte
-    
+
     // Internal command execution
-    bool executeCommand(uint8_t cmd, const uint8_t* data, size_t len);
+    bool executeCommand(uint8_t cmd, const uint8_t *data, size_t len);
 };
 
 #endif

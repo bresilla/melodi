@@ -1,4 +1,5 @@
 #include "mesh.h"
+#include "node.h"
 
 // Define the broadcast address as all 0xFF.
 const uint8_t BROADCAST_ADDRESS[IPV6_ADDR_LEN] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
@@ -65,22 +66,22 @@ void serialSendReassembledPacket(ReassembledPacket *reassembledPacket) {
         const uint8_t HEADER[] = {0xAA, 0xBB, 0xCC, 0xDD};
         Serial.write(HEADER, 4);
         Serial.write((uint8_t)0x83); // RESP_MESSAGE
-        
+
         // Send broadcast flag
         Serial.write(reassembledPacket->broadcast ? 0x01 : 0x00);
-        
+
         // Send source IPv6 (16 bytes)
         Serial.write(reassembledPacket->source, 16);
-        
+
         // Send payload length (2 bytes, big-endian)
         Serial.write((reassembledPacket->payloadLength >> 8) & 0xFF);
         Serial.write(reassembledPacket->payloadLength & 0xFF);
-        
+
         // Send payload
         Serial.write(reassembledPacket->payload, reassembledPacket->payloadLength);
-        
+
         Serial.flush();
-        
+
         safePrintln("Reassembled message sent: %d bytes", reassembledPacket->payloadLength);
     }
 }
@@ -208,6 +209,12 @@ void createOrUpdateContext(const IPv6Packet *packet) {
         // Add the new fragment to the data buffer.
         memcpy(&context->dataBuffer[offset], packet->payload, packet->payloadLength);
         context->fragmentsReceived[fragIndex] = true;
+
+        // If this is the last fragment, record its length.
+        if (fragIndex == fragTotal - 1) {
+            context->lastFragmentLength = packet->payloadLength;
+            safePrintln("Last fragment received (new context)");
+        }
 
     } else {
         safePrintln("Updating context");

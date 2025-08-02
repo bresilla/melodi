@@ -3,8 +3,10 @@
 # Declare an associative array named deviceMap
 declare -A deviceMap
 deviceMap["1A86:55D4"]="ttgo"
-deviceMap["239A:800B"]="m0"
-deviceMap["239A:80F1"]="rpi"
+#deviceMap["239A:800B"]="m0"
+#deviceMap["239A:80F1"]="rpi"
+
+BOARD_ENV="ttgo"
 
 #check if argc executable is available
 if ! [ -x "$(command -v argc)" ]; then
