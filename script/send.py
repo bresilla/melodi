@@ -13,6 +13,9 @@ import argparse
 # Protocol constants
 CMD_SEND_MESSAGE = 0x01
 CMD_SET_CONFIG = 0x04
+CONFIG_TX_POWER = 0x01
+CONFIG_FREQUENCY = 0x02
+CONFIG_HOP_LIMIT = 0x03
 CONFIG_IPV6_ADDRESS = 0x04
 RESP_ACK = 0x80
 RESP_NACK = 0x81
@@ -69,6 +72,53 @@ def set_ipv6_address(ser, ipv6_address):
     print("⚠ Warning: No ACK received for address setting")
     return False
 
+def set_hop_limit(ser, hop_limit):
+    """Set the node's hop limit using CMD_SET_CONFIG"""
+    if hop_limit < 1 or hop_limit > 15:
+        print(f"Error: Hop limit must be between 1 and 15 (got {hop_limit})")
+        return False
+    
+    print(f"Setting hop limit to: {hop_limit}")
+    
+    # Build command: CMD_SET_CONFIG + CONFIG_TYPE + HOP_LIMIT_VALUE
+    command = bytes([CMD_SET_CONFIG, CONFIG_HOP_LIMIT, hop_limit])
+    
+    # Send command
+    ser.write(command)
+    ser.flush()
+    
+    # Wait for response
+    buffer = b""
+    start_time = time.time()
+    timeout = 2.0
+    
+    while time.time() - start_time < timeout:
+        if ser.in_waiting > 0:
+            new_data = ser.read(ser.in_waiting)
+            buffer += new_data
+            
+            # Look for header marker
+            header_pos = buffer.find(HEADER_MARKER)
+            if header_pos >= 0 and len(buffer) >= header_pos + 6:
+                resp_type = buffer[header_pos + 4]
+                
+                if resp_type == RESP_ACK:
+                    print("✓ Hop limit set successfully")
+                    return True
+                elif resp_type == RESP_NACK:
+                    if len(buffer) >= header_pos + 7:
+                        cmd = buffer[header_pos + 5]
+                        error_code = buffer[header_pos + 6]
+                        print(f"✗ NACK received for command 0x{cmd:02x}, error: 0x{error_code:02x}")
+                    else:
+                        print("✗ NACK received")
+                    return False
+        
+        time.sleep(0.1)
+    
+    print("⚠ Warning: No ACK received for hop limit setting")
+    return False
+
 def ipv6_to_bytes(ipv6_str):
     """Convert IPv6 string to 16 bytes"""
     try:
@@ -76,7 +126,7 @@ def ipv6_to_bytes(ipv6_str):
     except socket.error:
         return None
 
-def send_message(port, address, payload, timeout=15, node_ip=None, repeat=1):
+def send_message(port, address, payload, timeout=15, node_ip=None, repeat=1, hop_limit=None):
     """Send a message with proper protocol handling"""
     # Validate repeat count
     if repeat < 1 or repeat > 255:
@@ -98,6 +148,13 @@ def send_message(port, address, payload, timeout=15, node_ip=None, repeat=1):
             time.sleep(0.5)
             ser = serial.Serial(port, 115200, timeout=1)
             time.sleep(1)  # Allow device to reinitialize
+        
+        # Set hop limit if provided
+        if hop_limit is not None:
+            if not set_hop_limit(ser, hop_limit):
+                print("Failed to set hop limit")
+                ser.close()
+                return False
         
         # Convert address
         if address.lower() == "broadcast":
@@ -201,10 +258,11 @@ def main():
     parser.add_argument('--timeout', type=int, default=15, help='Response timeout in seconds (default: 15)')
     parser.add_argument('--ip', help='Set node IPv6 address before sending (e.g., 2001:db8::1)')
     parser.add_argument('--repeat', type=int, default=1, help='Number of times to repeat each fragment (default: 1)')
+    parser.add_argument('--hop-limit', type=int, help='Set hop limit (1-15) before sending')
     
     args = parser.parse_args()
     
-    success = send_message(args.port, args.address, args.payload, args.timeout, args.ip, args.repeat)
+    success = send_message(args.port, args.address, args.payload, args.timeout, args.ip, args.repeat, getattr(args, 'hop_limit'))
     sys.exit(0 if success else 1)
 
 if __name__ == "__main__":

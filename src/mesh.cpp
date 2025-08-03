@@ -97,7 +97,7 @@ void serialSendReassembledPacket(ReassembledPacket *reassembledPacket) {
     }
 }
 
-void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const uint8_t *message, size_t msgLen, uint8_t repeatCount) {
+void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const uint8_t *message, size_t msgLen, uint8_t repeatCount, uint8_t hopLimit) {
     if (!meshRadio) {
         return;
     }
@@ -119,7 +119,7 @@ void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const uint
         IPv6Packet packet;
         // Fill in the FragInfo structure:
         packet.fragInfo.packetID = currentPacketID; // Packet identifier.
-        packet.fragInfo.hopLimit = 10;              // Hop limit (TTL)
+        packet.fragInfo.hopLimit = hopLimit;        // Hop limit (TTL)
         packet.fragInfo.fragmentIndex = frag;       // Fragment index.
         packet.fragInfo.fragmentTotal = fragCount;  // Total number of fragments.
 

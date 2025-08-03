@@ -75,7 +75,7 @@ void setRadio(RH_RF95 *radio);
 void toIPv6Address(uint64_t ipv6_first, uint64_t ipv6_last, uint8_t *nodeAddress);
 bool ipv6Equal(const uint8_t *addr1, const uint8_t *addr2);
 void ipv6ToString(const uint8_t *addr, char *buffer, size_t bufferLen);
-void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const uint8_t *message, size_t msgLen, uint8_t repeatCount);
+void sendIPv6Message(const uint8_t *srcAddr, const uint8_t *destAddr, const uint8_t *message, size_t msgLen, uint8_t repeatCount, uint8_t hopLimit);
 void forwardPacket(IPv6Packet *packet);
 void safePrint(const char *format, ...);
 void safePrintln(const char *format, ...);

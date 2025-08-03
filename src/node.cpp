@@ -11,7 +11,7 @@ Node::Node(uint64_t ipv6_first, uint64_t ipv6_last) : radio(RFM95_CS, RFM95_INT)
     // Initialize enhanced protocol state
     currentTxPower = 23;
     currentFrequency = 868.0;
-    currentHopLimit = 10;
+    currentHopLimit = 3;
     startTime = 0;
     ipv6SetViaSerial = false;
 
@@ -83,7 +83,7 @@ void Node::sendMessage(const uint8_t *message, size_t messageLen, const uint8_t 
     char src_add[48];
     ipv6ToString(nodeAddress, src_add, sizeof(src_add));
     safePrintln("Sending binary message to %s from %s", dest_add, src_add);
-    sendIPv6Message(nodeAddress, destAddr, message, messageLen, repeatCount);
+    sendIPv6Message(nodeAddress, destAddr, message, messageLen, repeatCount, currentHopLimit);
 }
 
 // poll() listens for incoming packets, filters them,
@@ -459,7 +459,7 @@ void Node::resetToDefaults() {
     toIPv6Address(ipv6_first, ipv6_last, nodeAddress);
     currentTxPower = 23;
     currentFrequency = 868.0;
-    currentHopLimit = 10;
+    currentHopLimit = 3;
     ipv6SetViaSerial = false;
 
     // Apply settings to radio
