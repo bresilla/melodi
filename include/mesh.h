@@ -20,6 +20,10 @@ extern const uint8_t IGNORE_ADDRESS[IPV6_ADDR_LEN];
 #define MAX_REASSEMBLY_CONTEXTS 10
 #define REASSEMBLY_TIMEOUT 30000UL // 30 seconds
 
+// Duplicate detection
+#define MAX_RECENT_MESSAGES 20
+#define DUPLICATE_TIMEOUT 5000UL // 5 seconds
+
 typedef struct {
     bool active;
     bool broadcast;
@@ -40,6 +44,14 @@ typedef struct {
     uint16_t payloadLength;
     uint8_t payload[MAX_MESSAGE_SIZE];
 } ReassembledPacket;
+
+// Structure to track recent messages for duplicate detection
+typedef struct {
+    bool active;
+    uint32_t hash;
+    uint8_t source[IPV6_ADDR_LEN];
+    unsigned long timestamp;
+} RecentMessage;
 
 // Fragment info
 typedef struct __attribute__((packed)) {
@@ -72,5 +84,11 @@ void serialSendReassembledPacket(ReassembledPacket *reassembledPacket);
 void createOrUpdateContext(const IPv6Packet *packet);
 void deleteOldContexts();
 bool getCompletedContext(ReassembledPacket *reassembledPacket);
+
+// Duplicate detection functions
+uint32_t calculateMessageHash(const uint8_t *data, size_t length, const uint8_t *source);
+bool isDuplicateMessage(uint32_t hash, const uint8_t *source);
+void addRecentMessage(uint32_t hash, const uint8_t *source);
+void cleanupOldMessages();
 
 #endif

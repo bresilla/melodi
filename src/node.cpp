@@ -127,6 +127,7 @@ void Node::poll() {
         serialSendReassembledPacket(&completeCtx);
     }
     deleteOldContexts();
+    cleanupOldMessages();
 }
 
 // Returns a pointer to the radio instance.

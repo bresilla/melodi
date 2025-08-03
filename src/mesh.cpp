@@ -62,6 +62,17 @@ void safePrintln(const char *format, ...) {
 }
 
 void serialSendReassembledPacket(ReassembledPacket *reassembledPacket) {
+    // Check for duplicate message before sending to serial
+    uint32_t messageHash = calculateMessageHash(reassembledPacket->payload, reassembledPacket->payloadLength, reassembledPacket->source);
+    
+    if (isDuplicateMessage(messageHash, reassembledPacket->source)) {
+        safePrintln("Duplicate message detected, not sending to serial");
+        return;
+    }
+    
+    // Add this message to recent messages
+    addRecentMessage(messageHash, reassembledPacket->source);
+    
     if (Serial) {
         const uint8_t HEADER[] = {0xAA, 0xBB, 0xCC, 0xDD};
         Serial.write(HEADER, 4);
@@ -302,4 +313,90 @@ bool getCompletedContext(ReassembledPacket *reassembledPacket) {
         }
     }
     return complete;
+}
+
+// Array to track recent messages for duplicate detection
+static RecentMessage recentMessages[MAX_RECENT_MESSAGES];
+
+// Simple hash function (djb2 algorithm)
+uint32_t calculateMessageHash(const uint8_t *data, size_t length, const uint8_t *source) {
+    uint32_t hash = 5381;
+    
+    // Hash the message data
+    for (size_t i = 0; i < length; i++) {
+        hash = ((hash << 5) + hash) + data[i];
+    }
+    
+    // Include source address in hash to distinguish messages from different senders
+    for (int i = 0; i < IPV6_ADDR_LEN; i++) {
+        hash = ((hash << 5) + hash) + source[i];
+    }
+    
+    return hash;
+}
+
+// Check if a message with this hash from this source was recently processed
+bool isDuplicateMessage(uint32_t hash, const uint8_t *source) {
+    unsigned long now = millis();
+    
+    for (int i = 0; i < MAX_RECENT_MESSAGES; i++) {
+        if (recentMessages[i].active && 
+            recentMessages[i].hash == hash &&
+            memcmp(recentMessages[i].source, source, IPV6_ADDR_LEN) == 0) {
+            
+            // Check if entry hasn't expired
+            if (now - recentMessages[i].timestamp < DUPLICATE_TIMEOUT) {
+                return true; // Duplicate found
+            } else {
+                // Entry expired, mark as inactive
+                recentMessages[i].active = false;
+            }
+        }
+    }
+    
+    return false; // Not a duplicate
+}
+
+// Add a message hash to the recent messages list
+void addRecentMessage(uint32_t hash, const uint8_t *source) {
+    unsigned long now = millis();
+    
+    // Find an inactive slot or the oldest entry
+    int oldestIndex = 0;
+    unsigned long oldestTime = recentMessages[0].timestamp;
+    
+    for (int i = 0; i < MAX_RECENT_MESSAGES; i++) {
+        if (!recentMessages[i].active) {
+            // Found an inactive slot
+            recentMessages[i].active = true;
+            recentMessages[i].hash = hash;
+            memcpy(recentMessages[i].source, source, IPV6_ADDR_LEN);
+            recentMessages[i].timestamp = now;
+            return;
+        }
+        
+        // Track oldest entry in case we need to overwrite
+        if (recentMessages[i].timestamp < oldestTime) {
+            oldestTime = recentMessages[i].timestamp;
+            oldestIndex = i;
+        }
+    }
+    
+    // No inactive slots found, overwrite the oldest entry
+    recentMessages[oldestIndex].active = true;
+    recentMessages[oldestIndex].hash = hash;
+    memcpy(recentMessages[oldestIndex].source, source, IPV6_ADDR_LEN);
+    recentMessages[oldestIndex].timestamp = now;
+}
+
+// Clean up expired entries from recent messages
+void cleanupOldMessages() {
+    unsigned long now = millis();
+    
+    for (int i = 0; i < MAX_RECENT_MESSAGES; i++) {
+        if (recentMessages[i].active && 
+            (now - recentMessages[i].timestamp > DUPLICATE_TIMEOUT)) {
+            recentMessages[i].active = false;
+        }
+    }
 }
