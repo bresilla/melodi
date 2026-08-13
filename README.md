@@ -6,10 +6,20 @@ Melodi radio firmware
 This firmware turns a LoRa board into a Melodi modem. It carries opaque Melodi
 frames between the host kernel stack and the LoRa PHY and does nothing else.
 
-The Melodi network stack lives in the host kernel modules (`../melodi`).
-Addressing, discovery, identity, encryption, fragmentation, reliability,
-ordering, queueing and airtime governance are all implemented there. This
-firmware owns only the radio.
+The Melodi network stack lives in the host kernel modules,
+[melodi-net/melodi](https://github.com/melodi-net/melodi). Addressing,
+discovery, identity, encryption, fragmentation, reliability, ordering,
+queueing and airtime governance are all implemented there. This firmware owns
+only the radio.
+
+Clone both repositories side by side, because the build compiles the protocol
+codec straight out of the kernel tree:
+
+```text
+melodi/
+├── melodi/     the kernel stack
+└── firmware/   this repository
+```
 
 ---
 
