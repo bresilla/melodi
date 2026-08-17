@@ -39,7 +39,7 @@
 #endif
 
 #define MELODI_FIRMWARE "melodi-fw-0.1.0"
-#define MELODI_QUEUE_DEPTH 8
+#define MELODI_QUEUE_DEPTH 24
 #define MELODI_OTA_HEADER 8
 #define MELODI_STATUS_INTERVAL_MS 2000
 
