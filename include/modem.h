@@ -19,12 +19,15 @@
 #define RFM95_RST 4
 #define MELODI_BOARD "feather-m0-rfm"
 #elif defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_RFM)
+#if defined(PIN_RFM_CS)
+#define RFM95_CS PIN_RFM_CS
+#define RFM95_INT PIN_RFM_DIO0
+#define RFM95_RST PIN_RFM_RST
+#else
 #define RFM95_CS 16
 #define RFM95_INT 21
 #define RFM95_RST 17
-#define MELODI_SCK 14
-#define MELODI_MISO 8
-#define MELODI_MOSI 15
+#endif
 #define MELODI_BOARD "feather-rp2040-rfm"
 #elif defined(LILYGO_TTGO_LORA32_V2)
 #define RFM95_CS 18

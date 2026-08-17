@@ -20,11 +20,6 @@ void Modem::begin()
     delay(10);
     digitalWrite(RFM95_RST, HIGH);
     delay(10);
-#if defined(MELODI_SCK)
-    SPI.setSCK(MELODI_SCK);
-    SPI.setRX(MELODI_MISO);
-    SPI.setTX(MELODI_MOSI);
-#endif
     radioReady = radio.init();
     if (radioReady)
         radio.setPromiscuous(true);
