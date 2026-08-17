@@ -117,6 +117,7 @@ bool Modem::applyRadio(const struct melodi_radio_configure *config)
     radio.setSpreadingFactor(config->spreading_factor);
     radio.setCodingRate4(config->coding_rate);
     radio.setTxPower(config->transmit_power_dbm, false);
+    radio.setCADTimeout(MELODI_CAD_TIMEOUT_MS);
     radio.setModeRx();
     return true;
 }
@@ -207,6 +208,7 @@ void Modem::servicePending()
     unsigned long started;
     uint32_t duration_us;
     uint16_t index;
+    uint16_t total;
 
     if (state != MELODI_RADIO_STATE_READY)
         return;
@@ -223,12 +225,20 @@ void Modem::servicePending()
         frame[7] = (uint8_t)locator;
         memcpy(frame + MELODI_OTA_HEADER, queue[index].payload,
                queue[index].length);
-        started = micros();
-        if (!radio.send(frame, MELODI_OTA_HEADER + queue[index].length)) {
+        total = MELODI_OTA_HEADER + queue[index].length;
+        if (total > RH_RF95_MAX_MESSAGE_LEN) {
             sendResult(queue[index].cookie, 0,
                        MELODI_RADIO_RESULT_TOO_LARGE);
             queue[index].active = false;
             continue;
+        }
+        started = micros();
+        /* send() defers to channel activity detection before transmitting. */
+        if (!radio.send(frame, (uint8_t)total)) {
+            radio.setModeRx();
+            sendResult(queue[index].cookie, 0, MELODI_RADIO_RESULT_BUSY);
+            queue[index].active = false;
+            return;
         }
         radio.waitPacketSent();
         duration_us = (uint32_t)(micros() - started);

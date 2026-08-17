@@ -12,6 +12,12 @@ discovery, identity, encryption, fragmentation, reliability, ordering,
 queueing and airtime governance are all implemented there. This firmware owns
 only the radio.
 
+Medium access is the one policy the firmware does own, because only the modem
+can observe the channel. Before every transmission it waits for channel
+activity detection to report the air clear, backing off a random interval while
+another node's preamble is present. A packet that finds no clear channel within
+the detection timeout is reported to the host as `BUSY`.
+
 Clone both repositories side by side, because the build compiles the protocol
 codec straight out of the kernel tree:
 

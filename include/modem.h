@@ -42,6 +42,7 @@
 #define MELODI_QUEUE_DEPTH 24
 #define MELODI_OTA_HEADER 8
 #define MELODI_STATUS_INTERVAL_MS 2000
+#define MELODI_CAD_TIMEOUT_MS 12000
 
 struct ModemTransmit {
     uint32_t cookie;
