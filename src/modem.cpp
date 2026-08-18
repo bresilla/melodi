@@ -60,6 +60,8 @@ void Modem::sendStatus()
     status.queue_free = queueFree();
     status.state = state;
     status.fault = fault;
+    status.modem_status = radioReady ?
+                          radio.spiRead(RH_RF95_REG_18_MODEM_STAT) : 0;
     if (melodi_radio_encode_status(&status, message, sizeof(message),
                                    &length))
         return;
